@@ -1,31 +1,46 @@
-Nome progetto: *** BnB Manager ***
-Tipologia: Applicazione desktop per macOS
-Tecnologie principali:
-	•	Linguaggio: Swift
-	•	Framework UI: SwiftUI
-	•	IDE: Xcode
-	•	Sistema operativo target: macOS (Apple Silicon & Intel compatibile)
+# 🏡 MyBnB – Gestione BnB per macOS
 
-Obiettivo del progetto:
-Creare un’app semplice ed immediata per gestire le attività di un BnB, evitando la complessità di stack full-stack tradizionali (VS Code, Postman, Docker, MySQL), e offrendo invece una soluzione locale e leggera.
+MyBnB è una semplice applicazione desktop per **macOS**, sviluppata con **Xcode** e **SwiftUI**, pensata per gestire in modo intuitivo le prenotazioni e le spese di un Bed & Breakfast.  
+Un progetto nato da un’esigenza reale: avere un gestionale **easy e veloce**, senza dover configurare stack complessi (Docker, MySQL, Postman…).
 
-Funzionalità principali (attuali):
-	•	Gestione delle prenotazioni (inserimento, modifica, eliminazione)
-	•	Visualizzazione rapida dello stato delle camere
-	•	Statistiche di base sulle prenotazioni
-	•	Interfaccia utente intuitiva e ottimizzata per macOS
+---
 
-Funzionalità future (in roadmap):
-	•	Integrazione con database locale (Core Data o SQLite)
-	•	Esportazione report in PDF/Excel
-	•	Notifiche per check-in / check-out
-	•	Possibile sincronizzazione con servizi cloud (per più dispositivi)
+## 🚀 Funzionalità principali
+- 📅 **Gestione prenotazioni**: aggiunta, modifica ed eliminazione  
+- 🛏 **Calendario**: panoramica delle camere e disponibilità  
+- 📊 **Dashboard**: statistiche rapide sull’andamento del BnB  
+- 💸 **Gestione spese**: inserimento e monitoraggio dei costi  
 
-Punti di forza:
-	•	Semplicità e rapidità di utilizzo
-	•	Applicazione standalone (non richiede setup complesso)
-	•	Architettura modulare pronta per estensioni future
-	•	Esperienza utente nativa macOS grazie a SwiftUI
+---
 
-Stato del progetto:
-Versione iniziale completata – funzionante su macOS. In corso iterazioni per miglioramenti UI/UX e funzionalità aggiuntive.
+## 🛠️ Tecnologie utilizzate
+- **Swift**  
+- **SwiftUI**  
+- **Xcode** (IDE)  
+- Target: **macOS** (Apple Silicon & Intel)
+
+---
+
+## 📂 Struttura del progetto
+- `Models/` → Strutture dati (Prenotazioni, Spese)  
+- `ViewModels/` → Logica di business e binding con la UI  
+- `Views/` → Interfacce utente (Dashboard, Prenotazioni, Spese, Calendario)
+
+---
+
+## 📌 Roadmap
+- [ ] Integrazione con database locale (Core Data / SQLite)  
+- [ ] Esportazione report in PDF/Excel  
+- [ ] Notifiche check-in/check-out  
+- [ ] Possibile sincronizzazione con servizi cloud  
+
+---
+
+## 👨‍💻 Autore
+Sviluppato da **Francesco Chifari**  
+📫 [LinkedIn](www.linkedin.com/in/francesco-chifari)
+
+---
+
+## 📜 Licenza
+Questo progetto è distribuito con licenza **MIT**. Sentiti libero di usarlo, modificarlo e migliorarlo.
