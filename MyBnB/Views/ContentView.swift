@@ -10,14 +10,24 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var viewModel = GestionaleViewModel()
     @State private var selectedTab = 0
+    @State private var useEnhancedDashboard = true // Toggle per testare
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            DashboardView(viewModel: viewModel)
-                .tabItem {
-                    Label("Dashboard", systemImage: "chart.bar.fill")
-                }
-                .tag(0)
+            // USA LA NUOVA DASHBOARD ENHANCED
+            if useEnhancedDashboard {
+                EnhancedDashboardView(viewModel: viewModel)  // ← NUOVO
+                    .tabItem {
+                        Label("Dashboard", systemImage: "chart.bar.fill")
+                    }
+                    .tag(0)
+            } else {
+                DashboardView(viewModel: viewModel)  // Vecchia dashboard
+                    .tabItem {
+                        Label("Dashboard", systemImage: "chart.bar.fill")
+                    }
+                    .tag(0)
+            }
             
             PrenotazioniView(viewModel: viewModel)
                 .tabItem {
@@ -37,9 +47,8 @@ struct ContentView: View {
                 }
                 .tag(3)
         }
+        .onAppear {
+            viewModel.enableCoreData()
+        }
     }
-}
-
-#Preview {
-    ContentView()
 }

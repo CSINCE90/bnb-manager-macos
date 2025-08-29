@@ -62,7 +62,7 @@ class GestionaleViewModel: ObservableObject {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     }
     
-    private func salvaDati() {
+    func salvaDati() {
         let encoder = JSONEncoder()
         
         // Salva prenotazioni
