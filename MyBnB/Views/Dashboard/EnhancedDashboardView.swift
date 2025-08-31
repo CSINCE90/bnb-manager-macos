@@ -1,17 +1,23 @@
 //
-//  EnhancedDashboardView.swift
+//  EnhancedDashboardView.swift - VERSIONE CORRETTA
 //  MyBnB
-//
-//  Created by Francesco Chifari on 29/08/25.
 //
 
 import SwiftUI
-import Charts // Necessario per i grafici
+import Charts
 
 struct EnhancedDashboardView: View {
     @ObservedObject var viewModel: GestionaleViewModel
+    @Binding var selectedTab: Int
     @State private var selectedPeriod = "Mese"
     @State private var showingStats = true
+    
+    // Stati per le sheet
+    @State private var showingAddBooking = false
+    @State private var showingAddExpense = false
+    @State private var showingReport = false
+    @State private var showingStatistics = false
+    @State private var showingSettings = false
     
     var body: some View {
         ScrollView {
@@ -30,21 +36,28 @@ struct EnhancedDashboardView: View {
                         ))
                 }
                 
-                // Grafico Entrate (Nuovo!)
+                // Grafico Entrate
                 RevenueChartSection(viewModel: viewModel)
                     .padding(.horizontal)
                 
-                // Occupazione Visuale (Nuovo!)
+                // Occupazione Visuale
                 OccupancyVisualSection(viewModel: viewModel)
                     .padding(.horizontal)
                 
-                // Prenotazioni Recenti Migliorate
+                // Prenotazioni Recenti
                 EnhancedRecentBookings(viewModel: viewModel)
                     .padding(.horizontal)
                 
-                // Quick Actions con animazioni
-                QuickActionsGrid(viewModel: viewModel)
-                    .padding(.horizontal)
+                // Quick Actions
+                QuickActionsSection(
+                    showingAddBooking: $showingAddBooking,
+                    showingAddExpense: $showingAddExpense,
+                    showingReport: $showingReport,
+                    showingStatistics: $showingStatistics,
+                    showingSettings: $showingSettings,
+                    selectedTab: $selectedTab
+                )
+                .padding(.horizontal)
             }
             .padding(.vertical)
         }
@@ -55,6 +68,22 @@ struct EnhancedDashboardView: View {
                 endPoint: .bottom
             )
         )
+        .sheet(isPresented: $showingAddBooking) {
+            AggiungiPrenotazioneView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingAddExpense) {
+            AggiungiSpesaView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingReport) {
+            ReportView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingStatistics) {
+            StatisticsView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(viewModel: viewModel)
+                .frame(minWidth: 600, minHeight: 500)
+        }
     }
 }
 
@@ -343,11 +372,28 @@ struct RevenueChartSection: View {
 struct OccupancyVisualSection: View {
     @ObservedObject var viewModel: GestionaleViewModel
     
+    // Configurazione personalizzabile - puoi cambiarla o leggerla da UserDefaults
+    @AppStorage("totalBeds") private var totalBeds = 4  // Posti letto totali
+    @AppStorage("accommodationType") private var accommodationType = "B&B"  // Tipo struttura
+    @State private var showingSettings = false
+    
+    // Calcolo occupazione basato sui posti letto
+    var occupiedBeds: Int {
+        let today = Date()
+        return viewModel.prenotazioniAttive
+            .filter { prenotazione in
+                prenotazione.dataCheckIn <= today && prenotazione.dataCheckOut >= today
+            }
+            .reduce(0) { $0 + $1.numeroOspiti }  // Somma gli ospiti attuali
+    }
+    
+    var availableBeds: Int {
+        max(totalBeds - occupiedBeds, 0)
+    }
+    
     var occupancyRate: Double {
-        // Calcolo semplificato del tasso di occupazione
-        let totalDays = 30.0
-        let occupiedDays = Double(viewModel.prenotazioniAttive.count * 3) // Media 3 giorni per prenotazione
-        return min((occupiedDays / totalDays) * 100, 100)
+        guard totalBeds > 0 else { return 0 }
+        return (Double(occupiedBeds) / Double(totalBeds)) * 100
     }
     
     var occupancyColor: Color {
@@ -360,11 +406,26 @@ struct OccupancyVisualSection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Header con impostazioni
             HStack {
-                Text("Tasso di Occupazione")
+                Text("Stato Occupazione")
                     .font(.headline)
                 
                 Spacer()
+                
+                // Badge con tipo struttura
+                Text(accommodationType)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(6)
+                
+                // Bottone impostazioni
+                Button(action: { showingSettings = true }) {
+                    Image(systemName: "gearshape")
+                        .foregroundColor(.secondary)
+                }
                 
                 Text("\(Int(occupancyRate))%")
                     .font(.title3)
@@ -373,12 +434,14 @@ struct OccupancyVisualSection: View {
             }
             
             HStack(spacing: 20) {
-                // Circular Progress
+                // Grafico circolare
                 ZStack {
+                    // Background circle
                     Circle()
                         .stroke(occupancyColor.opacity(0.2), lineWidth: 12)
                         .frame(width: 100, height: 100)
                     
+                    // Progress circle
                     Circle()
                         .trim(from: 0, to: occupancyRate / 100)
                         .stroke(occupancyColor, style: StrokeStyle(lineWidth: 12, lineCap: .round))
@@ -386,24 +449,103 @@ struct OccupancyVisualSection: View {
                         .rotationEffect(.degrees(-90))
                         .animation(.easeOut(duration: 1), value: occupancyRate)
                     
-                    VStack {
-                        Text("\(Int(occupancyRate))%")
+                    // Centro con info
+                    VStack(spacing: 2) {
+                        Text("\(occupiedBeds)/\(totalBeds)")
                             .font(.title2)
                             .fontWeight(.bold)
-                        Text("Occupato")
+                        Text("posti letto")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
                 
-                // Stats
+                // Statistiche dettagliate
                 VStack(alignment: .leading, spacing: 12) {
-                    StatRow(label: "Check-in Oggi", value: "\(todayCheckIns())", color: .green)
-                    StatRow(label: "Check-out Oggi", value: "\(todayCheckOuts())", color: .orange)
-                    StatRow(label: "Camere Libere", value: "\(freeRooms())", color: .blue)
+                    // Check-in oggi
+                    HStack {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 8, height: 8)
+                        
+                        Text("Check-in Oggi")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Text("\(todayCheckIns()) ospiti")
+                            .font(.callout)
+                            .fontWeight(.medium)
+                    }
+                    
+                    // Check-out oggi
+                    HStack {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 8, height: 8)
+                        
+                        Text("Check-out Oggi")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Text("\(todayCheckOuts()) ospiti")
+                            .font(.callout)
+                            .fontWeight(.medium)
+                    }
+                    
+                    // Posti disponibili
+                    HStack {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 8, height: 8)
+                        
+                        Text("Posti Disponibili")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Text("\(availableBeds)")
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .foregroundColor(availableBeds == 0 ? .red : .primary)
+                    }
                 }
                 
                 Spacer()
+                
+                // Visual dei posti letto
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Situazione Posti")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    LazyVGrid(columns: [
+                        GridItem(.adaptive(minimum: 30))
+                    ], spacing: 8) {
+                        ForEach(0..<totalBeds, id: \.self) { index in
+                            Image(systemName: index < occupiedBeds ? "bed.double.fill" : "bed.double")
+                                .font(.title2)
+                                .foregroundColor(index < occupiedBeds ? occupancyColor : .gray.opacity(0.3))
+                        }
+                    }
+                    .frame(maxWidth: 150)
+                    
+                    if occupancyRate >= 100 {
+                        Text("Completo!")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.red)
+                    } else if availableBeds == 1 {
+                        Text("Ultimo posto!")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.orange)
+                    }
+                }
             }
         }
         .padding()
@@ -412,37 +554,100 @@ struct OccupancyVisualSection: View {
                 .fill(Color(NSColor.controlBackgroundColor))
                 .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         )
+        .sheet(isPresented: $showingSettings) {
+            OccupancySettingsView(totalBeds: $totalBeds, accommodationType: $accommodationType)
+        }
     }
     
+    // Calcola ospiti in check-in oggi
     private func todayCheckIns() -> Int {
         let calendar = Calendar.current
         let today = Date()
-        return viewModel.prenotazioni.filter {
-            calendar.isDate($0.dataCheckIn, inSameDayAs: today)
-        }.count
+        return viewModel.prenotazioni
+            .filter { calendar.isDate($0.dataCheckIn, inSameDayAs: today) }
+            .reduce(0) { $0 + $1.numeroOspiti }
     }
     
+    // Calcola ospiti in check-out oggi
     private func todayCheckOuts() -> Int {
         let calendar = Calendar.current
         let today = Date()
-        return viewModel.prenotazioni.filter {
-            calendar.isDate($0.dataCheckOut, inSameDayAs: today)
-        }.count
-    }
-    
-    private func freeRooms() -> Int {
-        // Assumiamo un totale di 5 camere
-        let totalRooms = 5
-        let occupiedRooms = viewModel.prenotazioniAttive.filter { prenotazione in
-            let today = Date()
-            return prenotazione.dataCheckIn <= today && prenotazione.dataCheckOut >= today
-        }.count
-        return max(totalRooms - occupiedRooms, 0)
+        return viewModel.prenotazioni
+            .filter { calendar.isDate($0.dataCheckOut, inSameDayAs: today) }
+            .reduce(0) { $0 + $1.numeroOspiti }
     }
 }
 
-// MARK: - Stat Row
-struct StatRow: View {
+// MARK: - Occupancy Settings View
+struct OccupancySettingsView: View {
+    @Binding var totalBeds: Int
+    @Binding var accommodationType: String
+    @Environment(\.dismiss) private var dismiss
+    
+    let accommodationTypes = ["B&B", "Casa Vacanze", "Affittacamere", "Guest House", "Ostello", "Appartamento"]
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Impostazioni Struttura")
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            Form {
+                // Tipo struttura
+                Section("Tipo di Struttura") {
+                    Picker("Tipo", selection: $accommodationType) {
+                        ForEach(accommodationTypes, id: \.self) { type in
+                            Text(type).tag(type)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                }
+                
+                // Posti letto
+                Section("Capacità") {
+                    HStack {
+                        Text("Posti Letto Totali")
+                        Spacer()
+                        Stepper("\(totalBeds)", value: $totalBeds, in: 1...20)
+                    }
+                    
+                    Text("Imposta il numero totale di posti letto disponibili nella tua struttura")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                // Anteprima
+                Section("Anteprima") {
+                    HStack {
+                        Image(systemName: "bed.double.fill")
+                            .foregroundColor(.blue)
+                        Text("\(totalBeds) posti letto in \(accommodationType)")
+                    }
+                }
+            }
+            .frame(height: 250)
+            
+            HStack {
+                Button("Annulla") {
+                    dismiss()
+                }
+                
+                Spacer()
+                
+                Button("Salva") {
+                    // Le modifiche sono già salvate tramite @AppStorage
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .frame(width: 400)
+    }
+}
+
+// MARK: - StatRowItem (se non esiste già)
+struct StatRowItem: View {
     let label: String
     let value: String
     let color: Color
@@ -466,6 +671,7 @@ struct StatRow: View {
     }
 }
 
+
 // MARK: - Enhanced Recent Bookings
 struct EnhancedRecentBookings: View {
     @ObservedObject var viewModel: GestionaleViewModel
@@ -479,7 +685,6 @@ struct EnhancedRecentBookings: View {
                 
                 Spacer()
                 
-                // Non usiamo NavigationLink ma un semplice testo
                 if !viewModel.prenotazioniAttive.isEmpty {
                     Text("\(viewModel.prenotazioniAttive.count) attive")
                         .font(.caption)
@@ -507,7 +712,6 @@ struct EnhancedRecentBookings: View {
                 }
             }
             
-            // Dettagli prenotazione selezionata
             if let booking = selectedBooking {
                 BookingDetailCard(booking: booking)
                     .transition(.asymmetric(
@@ -518,6 +722,8 @@ struct EnhancedRecentBookings: View {
         }
     }
 }
+
+// MARK: - Booking Card
 struct BookingCard: View {
     let prenotazione: Prenotazione
     let isSelected: Bool
@@ -588,35 +794,45 @@ struct BookingDetailCard: View {
                 .font(.callout)
                 .fontWeight(.semibold)
             
-            Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 8) {
-                GridRow {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
                     Label("Ospite", systemImage: "person")
                         .foregroundColor(.secondary)
+                        .font(.caption)
+                    Spacer()
                     Text(booking.nomeOspite)
                         .fontWeight(.medium)
+                        .font(.caption)
                 }
                 
-                GridRow {
+                HStack {
                     Label("Email", systemImage: "envelope")
                         .foregroundColor(.secondary)
+                        .font(.caption)
+                    Spacer()
                     Text(booking.email)
                         .font(.caption)
                 }
                 
-                GridRow {
+                HStack {
                     Label("Periodo", systemImage: "calendar")
                         .foregroundColor(.secondary)
+                        .font(.caption)
+                    Spacer()
                     Text("\(formatDate(booking.dataCheckIn)) - \(formatDate(booking.dataCheckOut))")
+                        .font(.caption)
                 }
                 
-                GridRow {
+                HStack {
                     Label("Totale", systemImage: "eurosign")
                         .foregroundColor(.secondary)
+                        .font(.caption)
+                    Spacer()
                     Text("€\(String(format: "%.2f", booking.prezzoTotale))")
                         .fontWeight(.semibold)
+                        .font(.caption)
                 }
             }
-            .font(.caption)
         }
         .padding()
         .background(
@@ -665,12 +881,14 @@ struct EmptyStateCard: View {
     }
 }
 
-// MARK: - Quick Actions Grid
-struct QuickActionsGrid: View {
-    @ObservedObject var viewModel: GestionaleViewModel
-    @State private var showingAddBooking = false
-    @State private var showingAddExpense = false
-    @State private var showingReport = false
+// MARK: - Quick Actions Section
+struct QuickActionsSection: View {
+    @Binding var showingAddBooking: Bool
+    @Binding var showingAddExpense: Bool
+    @Binding var showingReport: Bool
+    @Binding var showingStatistics: Bool
+    @Binding var showingSettings: Bool
+    @Binding var selectedTab: Int 
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -683,60 +901,59 @@ struct QuickActionsGrid: View {
                 GridItem(.flexible())
             ], spacing: 12) {
                 
-                QuickActionButton(
+                QuickActionButtonSimple(
                     title: "Nuova Prenotazione",
                     icon: "plus.circle.fill",
                     color: .blue,
                     action: { showingAddBooking = true }
                 )
                 
-                QuickActionButton(
+                QuickActionButtonSimple(
                     title: "Aggiungi Spesa",
                     icon: "creditcard.fill",
                     color: .orange,
                     action: { showingAddExpense = true }
                 )
                 
-                QuickActionButton(
+                QuickActionButtonSimple(
                     title: "Genera Report",
                     icon: "doc.text.fill",
                     color: .purple,
                     action: { showingReport = true }
                 )
                 
-                QuickActionButton(
+                QuickActionButtonSimple(
                     title: "Calendario",
                     icon: "calendar",
                     color: .green,
-                    action: { }
+                    action: {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("NavigateToCalendar"),
+                            object: nil
+                        )
+                    }
                 )
                 
-                QuickActionButton(
+                QuickActionButtonSimple(
                     title: "Statistiche",
                     icon: "chart.bar.fill",
                     color: .pink,
-                    action: { }
+                    action: { showingStatistics = true }
                 )
                 
-                QuickActionButton(
+                QuickActionButtonSimple(
                     title: "Impostazioni",
                     icon: "gearshape.fill",
                     color: .gray,
-                    action: { }
+                    action: { showingSettings = true }
                 )
             }
-        }
-        .sheet(isPresented: $showingAddBooking) {
-            AggiungiPrenotazioneView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showingAddExpense) {
-            AggiungiSpesaView(viewModel: viewModel)
         }
     }
 }
 
-// MARK: - Quick Action Button
-struct QuickActionButton: View {
+// MARK: - Quick Action Button Simple
+struct QuickActionButtonSimple: View {
     let title: String
     let icon: String
     let color: Color
@@ -775,3 +992,71 @@ struct QuickActionButton: View {
         }, perform: {})
     }
 }
+
+
+// MARK: - Export Manager
+import AppKit
+
+struct ExportManager {
+    static func exportAsPDF() {
+        let savePanel = NSSavePanel()
+        savePanel.title = "Esporta PDF"
+        savePanel.allowedFileTypes = ["pdf"]
+        savePanel.nameFieldStringValue = "report.pdf"
+        
+        if savePanel.runModal() == .OK, let url = savePanel.url {
+            let pdfContent = "Report MyBnB - dati fittizi"
+            let data = pdfContent.data(using: .utf8)!
+            do {
+                try data.write(to: url)
+                print("PDF esportato in: \(url.path)")
+            } catch {
+                print("Errore esportazione PDF: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    static func exportAsCSV() {
+        let savePanel = NSSavePanel()
+        savePanel.title = "Esporta CSV"
+        savePanel.allowedFileTypes = ["csv"]
+        savePanel.nameFieldStringValue = "dati.csv"
+        
+        if savePanel.runModal() == .OK, let url = savePanel.url {
+            let csvContent = "Nome,CheckIn,CheckOut,Prezzo\nMario Rossi,01/09/2025,05/09/2025,250"
+            let data = csvContent.data(using: .utf8)!
+            do {
+                try data.write(to: url)
+                print("CSV esportato in: \(url.path)")
+            } catch {
+                print("Errore esportazione CSV: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    static func exportAsJSON() {
+        let savePanel = NSSavePanel()
+        savePanel.title = "Esporta JSON"
+        savePanel.allowedFileTypes = ["json"]
+        savePanel.nameFieldStringValue = "dati.json"
+        
+        if savePanel.runModal() == .OK, let url = savePanel.url {
+            let jsonContent = """
+            {
+                "prenotazioni": [
+                    { "nome": "Mario Rossi", "checkIn": "2025-09-01", "checkOut": "2025-09-05", "prezzo": 250 }
+                ]
+            }
+            """
+            let data = jsonContent.data(using: .utf8)!
+            do {
+                try data.write(to: url)
+                print("JSON esportato in: \(url.path)")
+            } catch {
+                print("Errore esportazione JSON: \(error.localizedDescription)")
+            }
+        }
+    }
+}
+
+

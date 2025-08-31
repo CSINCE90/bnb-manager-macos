@@ -11,22 +11,25 @@ struct PrenotazioniView: View {
     @State private var mostraAggiungiPrenotazione = false
     
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(viewModel.prenotazioni) { prenotazione in
-                    PrenotazioneCardView(prenotazione: prenotazione)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                if let index = viewModel.prenotazioni.firstIndex(where: { $0.id == prenotazione.id }) {
-                                    viewModel.eliminaPrenotazione(at: IndexSet(integer: index))
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.prenotazioni) { prenotazione in
+                        PrenotazioneCardView(prenotazione: prenotazione)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    if let index = viewModel.prenotazioni.firstIndex(where: { $0.id == prenotazione.id }) {
+                                        viewModel.eliminaPrenotazione(at: IndexSet(integer: index))
+                                    }
+                                } label: {
+                                    Label("Elimina", systemImage: "trash")
                                 }
-                            } label: {
-                                Label("Elimina", systemImage: "trash")
                             }
-                        }
+                            .padding(.horizontal)
+                    }
                 }
-                .onDelete(perform: viewModel.eliminaPrenotazione)
             }
+            .background(Color(nsColor: .windowBackgroundColor).ignoresSafeArea())
             .navigationTitle("Prenotazioni")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -104,8 +107,11 @@ struct PrenotazioneCardView: View {
             }
         }
         .padding()
-        .background(Color.secondary.opacity(0.05))
-        .cornerRadius(8)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        )
     }
 }
 

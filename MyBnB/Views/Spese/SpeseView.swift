@@ -5,7 +5,7 @@
 //  Created by Francesco Chifari on 27/08/25.
 //
 
-import SwiftUI
+/*import SwiftUI
 
 struct SpeseView: View {
     @ObservedObject var viewModel: GestionaleViewModel
@@ -34,9 +34,9 @@ struct SpeseView: View {
             }
         }
     }
-}
+}*/
 
-struct SpesaCardView: View {
+/*struct SpesaCardView: View {
     let spesa: Spesa
     
     private var dateFormatter: DateFormatter {
@@ -80,8 +80,8 @@ struct SpesaCardView: View {
         .background(Color.secondary.opacity(0.05))
         .cornerRadius(8)
     }
-}
+}*/
 
-#Preview {
-    SpeseView(viewModel: GestionaleViewModel())
-}
+//#Preview {
+    //SpeseView(viewModel: GestionaleViewModel())
+//}
