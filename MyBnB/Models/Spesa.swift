@@ -3,7 +3,7 @@
 //  MyBnB
 //
 //  Created by Francesco Chifari on 27/08/25.
-//
+//modificata in data 01/09/25
 
 import Foundation
 
@@ -20,5 +20,13 @@ struct Spesa: Identifiable, Codable {
         case utenze = "Utenze"
         case tasse = "Tasse"
         case altro = "Altro"
+    }
+    
+    // Inizializzatore
+    init(descrizione: String, importo: Double, data: Date, categoria: CategoriaSpesa) {
+        self.descrizione = descrizione
+        self.importo = importo
+        self.data = data
+        self.categoria = categoria
     }
 }

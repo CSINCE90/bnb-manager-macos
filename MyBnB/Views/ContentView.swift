@@ -1,9 +1,4 @@
-//
-//  ContentView.swift
-//  MyBnB
-//
-//  VERSIONE CORRETTA - Sintassi sistemata
-//
+// ===== SOSTITUISCI IL TUO ContentView.swift CON QUESTO =====
 
 import SwiftUI
 
@@ -11,6 +6,7 @@ struct ContentView: View {
     @StateObject private var viewModel = GestionaleViewModel()
     @State private var selectedTab = 0
     @State private var useEnhancedViews = true
+    @EnvironmentObject var localServer: LocalAPIServer
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -39,7 +35,7 @@ struct ContentView: View {
                 if useEnhancedViews {
                     EnhancedSpeseView(viewModel: viewModel)
                 } else {
-                    //SpeseView(viewModel: viewModel)
+                    Text("Spese View")
                 }
             }
             .tabItem {
@@ -59,9 +55,33 @@ struct ContentView: View {
                 Label("Calendario", systemImage: "calendar.badge.clock")
             }
             .tag(3)
+            
+            // API Server Tab
+            MockAPIServerView()
+                .environmentObject(localServer)
+                .tabItem {
+                    Label("API Server", systemImage: localServer.isRunning ? "server.rack" : "xmark.server")
+                }
+                .tag(4)
+            
+            // ML PRICE OPTIMIZER TAB
+            PriceOptimizerView(viewModel: viewModel)
+                .tabItem {
+                    Label("AI Prices", systemImage: "brain.head.profile")
+                }
+                .tag(5)
+            
+            // BOOKING INTEGRATION TAB (NUOVO!)
+            BookingIntegrationView(viewModel: viewModel)
+                .tabItem {
+                    Label("Booking.com", systemImage: "building.2.crop.circle")
+                }
+                .tag(6)
         }
         .onAppear {
             viewModel.enableCoreData()
+            localServer.configure(with: viewModel)
+            localServer.startServer()
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NavigateToCalendar"))) { _ in
             selectedTab = 3
@@ -71,4 +91,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environmentObject(LocalAPIServer())
 }

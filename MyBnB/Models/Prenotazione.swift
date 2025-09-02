@@ -1,9 +1,4 @@
-//
-//  Prenotazione.swift
-//  MyBnB
-//
-//  Created by Francesco Chifari on 27/08/25.
-//
+// ===== FIX 1: Models/Prenotazione.swift (AGGIORNA CON @Published) =====
 
 import SwiftUI
 
@@ -38,4 +33,18 @@ struct Prenotazione: Identifiable, Codable {
     var numeroNotti: Int {
         Calendar.current.dateComponents([.day], from: dataCheckIn, to: dataCheckOut).day ?? 0
     }
+    
+    // Inizializzatore per Codable
+    init(nomeOspite: String, email: String, telefono: String, dataCheckIn: Date, dataCheckOut: Date, numeroOspiti: Int, prezzoTotale: Double, statoPrenotazione: StatoPrenotazione, note: String) {
+        self.nomeOspite = nomeOspite
+        self.email = email
+        self.telefono = telefono
+        self.dataCheckIn = dataCheckIn
+        self.dataCheckOut = dataCheckOut
+        self.numeroOspiti = numeroOspiti
+        self.prezzoTotale = prezzoTotale
+        self.statoPrenotazione = statoPrenotazione
+        self.note = note
+    }
 }
+
