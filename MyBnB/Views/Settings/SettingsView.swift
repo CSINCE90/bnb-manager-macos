@@ -19,12 +19,10 @@ struct SettingsView: View {
             Form {
                 // Generali
                 Section("Impostazioni Generali") {
-                    Stepper("Numero Totale Camere: \(totalRooms)", value: $totalRooms, in: 1...20)
+                    //Stepper("Numero Totale Camere: \(totalRooms)", value: $totalRooms, in: 1...20)
                     
                     Picker("Valuta", selection: $currencySymbol) {
                         Text("€ Euro").tag("€")
-                        Text("$ Dollaro").tag("$")
-                        Text("£ Sterlina").tag("£")
                     }
                     .pickerStyle(.segmented)
                 }

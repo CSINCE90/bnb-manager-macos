@@ -38,3 +38,4 @@ struct PrenotazioneCardCompatta: View {
         return formatter.string(from: date)
     }
 }
+

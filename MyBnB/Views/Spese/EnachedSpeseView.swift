@@ -53,14 +53,21 @@ struct EnhancedSpeseView: View {
     }
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header con statistiche
-                HeaderSpeseView(
-                    totaleSpese: viewModel.speseTotali,
-                    numeroSpese: viewModel.spese.count,
-                    mediaSpese: viewModel.spese.isEmpty ? 0 : viewModel.speseTotali / Double(viewModel.spese.count)
-                )
+        VStack(spacing: 0) {
+            // Header con titolo e toolbar
+            HStack {
+                Text("Gestione Spese")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                Button(action: { mostraAggiungiSpesa = true }) {
+                    Label("Aggiungi", systemImage: "plus.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
                 
                 // Grafico distribuzione categorie
                 if !viewModel.spese.isEmpty {
@@ -143,7 +150,7 @@ struct EnhancedSpeseView: View {
             }
         }
     }
-}
+
 
 // MARK: - Header Spese View
 struct HeaderSpeseView: View {

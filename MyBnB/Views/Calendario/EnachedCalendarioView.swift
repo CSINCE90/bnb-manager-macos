@@ -1,16 +1,8 @@
 //
-//  EnachedCalendarioView.swift
+//  EnhancedCalendarioView.swift - Versione corretta degli errori
 //  MyBnB
 //
-//  Created by Francesco Chifari on 30/08/25.
-//
-
-//
-//  EnhancedCalendarioView.swift
-//  MyBnB
-//
-//  📍 PERCORSO: MyBnB/Views/Calendario/EnhancedCalendarioView.swift
-//  Calendario moderno con vista mensile e lista eventi
+//  Risolve tutti gli errori di compilazione
 //
 
 import SwiftUI
@@ -52,7 +44,22 @@ struct EnhancedCalendarioView: View {
     }
     
     var body: some View {
-        NavigationView {
+        VStack(spacing: 0) {
+            // Header con titolo
+            HStack {
+                Text("Calendario Prenotazioni")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                Button("Nuova Prenotazione") {
+                    showingAddBooking = true
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+            
             HSplitView {
                 // Pannello sinistro - Calendario
                 VStack(spacing: 0) {
@@ -114,21 +121,12 @@ struct EnhancedCalendarioView: View {
                     }
                     
                     Spacer()
-                    
-                    // Bottone aggiungi
-                    Button(action: { showingAddBooking = true }) {
-                        Label("Nuova Prenotazione", systemImage: "plus.circle.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .padding()
                 }
                 .frame(minWidth: 350)
             }
-            .navigationTitle("Calendario Prenotazioni")
-            .sheet(isPresented: $showingAddBooking) {
-                AggiungiPrenotazioneView(viewModel: viewModel)
-            }
+        }
+        .sheet(isPresented: $showingAddBooking) {
+            AggiungiPrenotazioneView(viewModel: viewModel)
         }
     }
 }
@@ -326,7 +324,7 @@ struct DayCell: View {
                 
                 Spacer()
             }
-            .frame(maxWidth: .infinity, minHeight: 80)
+            .frame(maxWidth: .infinity, minHeight: 80, maxHeight: 80)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
@@ -804,7 +802,7 @@ struct EmptyDayView: View {
                 .foregroundColor(.secondary)
             
             if isWeekend {
-                Text("💡 I weekend sono periodi di alta richiesta")
+                Text("I weekend sono periodi di alta richiesta")
                     .font(.caption)
                     .foregroundColor(.orange)
             }
@@ -812,4 +810,8 @@ struct EmptyDayView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(50)
     }
+}
+
+#Preview {
+    EnhancedCalendarioView(viewModel: GestionaleViewModel())
 }

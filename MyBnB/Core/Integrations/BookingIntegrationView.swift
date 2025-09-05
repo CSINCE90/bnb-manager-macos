@@ -7,7 +7,7 @@ struct BookingIntegrationView: View {
     @ObservedObject var viewModel: GestionaleViewModel
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 // Connection Status
                 ConnectionStatusCard(service: bookingService)
@@ -30,6 +30,7 @@ struct BookingIntegrationView: View {
                 Spacer()
             }
             .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("🏨 Booking.com Integration")
         }
         .onReceive(NotificationCenter.default.publisher(for: .bookingApproved)) { notification in

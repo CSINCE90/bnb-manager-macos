@@ -30,6 +30,13 @@ struct ContentView: View {
                 }
                 .tag(1)
             
+            // Bilancio Tab (NUOVO!)
+            BilancioView(viewModel: viewModel)
+                .tabItem {
+                    Label("Bilancio", systemImage: "eurosign.circle")
+                }
+                .tag(2)
+            
             // Spese Tab
             Group {
                 if useEnhancedViews {
@@ -41,7 +48,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Spese", systemImage: "creditcard")
             }
-            .tag(2)
+            .tag(3)
             
             // Calendario Tab
             Group {
@@ -54,7 +61,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Calendario", systemImage: "calendar.badge.clock")
             }
-            .tag(3)
+            .tag(4)
             
             // API Server Tab
             MockAPIServerView()
@@ -62,21 +69,21 @@ struct ContentView: View {
                 .tabItem {
                     Label("API Server", systemImage: localServer.isRunning ? "server.rack" : "xmark.server")
                 }
-                .tag(4)
+                .tag(5)
             
             // ML PRICE OPTIMIZER TAB
             PriceOptimizerView(viewModel: viewModel)
                 .tabItem {
                     Label("AI Prices", systemImage: "brain.head.profile")
                 }
-                .tag(5)
+                .tag(6)
             
-            // BOOKING INTEGRATION TAB (NUOVO!)
+            // BOOKING INTEGRATION TAB
             BookingIntegrationView(viewModel: viewModel)
                 .tabItem {
                     Label("Booking.com", systemImage: "building.2.crop.circle")
                 }
-                .tag(6)
+                .tag(7)
         }
         .onAppear {
             viewModel.enableCoreData()
@@ -84,7 +91,10 @@ struct ContentView: View {
             localServer.startServer()
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NavigateToCalendar"))) { _ in
-            selectedTab = 3
+            selectedTab = 4 // Aggiornato per il nuovo indice calendario
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NavigateToBilancio"))) { _ in
+            selectedTab = 2 // Nuovo: navigazione verso Bilancio
         }
     }
 }

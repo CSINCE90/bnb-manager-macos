@@ -17,6 +17,17 @@ struct EnhancedDashboardView: View {
     @State private var showingStatistics = false
     @State private var showingSettings = false
     
+    var prenotazioniAggiornate: [Prenotazione] {
+        let oggi = Date()
+        return viewModel.prenotazioni.map { prenotazione in
+            var aggiornata = prenotazione
+            if aggiornata.dataCheckOut < oggi && aggiornata.statoPrenotazione == .confermata {
+                aggiornata.statoPrenotazione = .completata
+            }
+            return aggiornata
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -43,8 +54,8 @@ struct EnhancedDashboardView: View {
                     .padding(.horizontal)
                 
                 // Prenotazioni Recenti
-                EnhancedRecentBookings(viewModel: viewModel)
-                    .padding(.horizontal)
+                //EnhancedRecentBookings(viewModel: viewModel, prenotazioni: prenotazioniAggiornate)
+                    //.padding(.horizontal)
                 // Nella tua Enhanced Dashboard, aggiungi:
                 NavigationLink("🤖 AI Price Optimizer") {
                     PriceOptimizerView(viewModel: viewModel)

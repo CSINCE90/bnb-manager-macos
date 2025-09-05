@@ -21,7 +21,7 @@ struct AggiungiPrenotazioneView: View {
    @State private var note = ""
    
    var body: some View {
-       NavigationView {
+       NavigationStack {
            Form {
                Section("Informazioni Ospite") {
                    TextField("Nome Ospite", text: $nomeOspite)
@@ -49,15 +49,15 @@ struct AggiungiPrenotazioneView: View {
                }
                
                Section("Note") {
-                   TextEditor(text: $note)
-                       .frame(minHeight: 60)
-                       .overlay(
+                   ZStack(alignment: .topLeading) {
+                       if note.isEmpty {
                            Text("Note aggiuntive")
                                .foregroundColor(.secondary)
                                .padding(.all, 8)
-                               .opacity(note.isEmpty ? 1 : 0),
-                           alignment: .topLeading
-                       )
+                       }
+                       TextEditor(text: $note)
+                           .frame(minHeight: 60)
+                   }
                }
            }
            .frame(minWidth: 500, maxWidth: .infinity, minHeight: 400, maxHeight: .infinity)

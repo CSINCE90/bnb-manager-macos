@@ -1,150 +1,64 @@
-//
-//  OccupancyVisualSection.swift
-//  MyBnB
-//
-//  Created by Francesco Chifari on 31/08/25.
-//
-
 import SwiftUI
 
 struct OccupancyVisualSection: View {
     @ObservedObject var viewModel: GestionaleViewModel
     
-    @AppStorage("totalBeds") private var totalBeds = 4
-    @AppStorage("accommodationType") private var accommodationType = "B&B"
-    @State private var showingSettings = false
-    
-    var occupiedBeds: Int {
+    var currentReservation: Prenotazione? {
         let today = Date()
-        return viewModel.prenotazioniAttive
-            .filter { prenotazione in
-                prenotazione.dataCheckIn <= today && prenotazione.dataCheckOut >= today
-            }
-            .reduce(0) { $0 + $1.numeroOspiti }
-    }
-    
-    var availableBeds: Int {
-        max(totalBeds - occupiedBeds, 0)
-    }
-    
-    var occupancyRate: Double {
-        guard totalBeds > 0 else { return 0 }
-        return (Double(occupiedBeds) / Double(totalBeds)) * 100
-    }
-    
-    var occupancyColor: Color {
-        switch occupancyRate {
-        case 0..<40: return .red
-        case 40..<70: return .orange
-        default: return .green
+        return viewModel.prenotazioniAttive.first { prenotazione in
+            prenotazione.dataCheckIn <= today && prenotazione.dataCheckOut >= today
         }
+    }
+    
+    var nextReservation: Prenotazione? {
+        let today = Date()
+        return viewModel.prenotazioni
+            .filter { $0.dataCheckIn > today }
+            .sorted { $0.dataCheckIn < $1.dataCheckIn }
+            .first
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header con impostazioni
+            // Header
             HStack {
-                Text("Stato Occupazione")
+                Text("Stato Casa Vacanze")
                     .font(.headline)
                 
                 Spacer()
                 
-                // Badge con tipo struttura
-                Text(accommodationType)
+                Text("Max 4 ospiti")
                     .font(.caption)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color.blue.opacity(0.1))
                     .cornerRadius(6)
-                
-                // Bottone impostazioni
-                Button(action: { showingSettings = true }) {
-                    Image(systemName: "gearshape")
-                        .foregroundColor(.secondary)
-                }
-                
-                Text("\(Int(occupancyRate))%")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundColor(occupancyColor)
             }
             
-            HStack(spacing: 20) {
-                // Grafico circolare
-                ZStack {
-                    Circle()
-                        .stroke(occupancyColor.opacity(0.2), lineWidth: 12)
-                        .frame(width: 100, height: 100)
-                    
-                    Circle()
-                        .trim(from: 0, to: occupancyRate / 100)
-                        .stroke(occupancyColor, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                        .frame(width: 100, height: 100)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.easeOut(duration: 1), value: occupancyRate)
-                    
-                    VStack(spacing: 2) {
-                        Text("\(occupiedBeds)/\(totalBeds)")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Text("posti letto")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+            // Status principale della casa
+            if let current = currentReservation {
+                CurrentGuestCard(prenotazione: current)
+            } else {
+                EmptyHouseCard(nextReservation: nextReservation)
+            }
+            
+            // Operazioni giornaliere
+            HStack(spacing: 16) {
+                // Check-in oggi
+                DailyOperationCard(
+                    title: "Check-in Oggi",
+                    guests: todayCheckInGuests(),
+                    icon: "key.fill",
+                    color: .green
+                )
                 
-                // Statistiche dettagliate
-                VStack(alignment: .leading, spacing: 12) {
-                    StatRowItem(
-                        label: "Check-in Oggi",
-                        value: "\(todayCheckIns()) ospiti",
-                        color: .green
-                    )
-                    
-                    StatRowItem(
-                        label: "Check-out Oggi",
-                        value: "\(todayCheckOuts()) ospiti",
-                        color: .orange
-                    )
-                    
-                    StatRowItem(
-                        label: "Posti Disponibili",
-                        value: "\(availableBeds)",
-                        color: .blue
-                    )
-                }
-                
-                Spacer()
-                
-                // Visual dei posti letto
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Situazione Posti")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    LazyVGrid(columns: [
-                        GridItem(.adaptive(minimum: 30))
-                    ], spacing: 8) {
-                        ForEach(0..<totalBeds, id: \.self) { index in
-                            Image(systemName: index < occupiedBeds ? "bed.double.fill" : "bed.double")
-                                .font(.title2)
-                                .foregroundColor(index < occupiedBeds ? occupancyColor : .gray.opacity(0.3))
-                        }
-                    }
-                    .frame(maxWidth: 150)
-                    
-                    if occupancyRate >= 100 {
-                        Text("Completo!")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.red)
-                    } else if availableBeds == 1 {
-                        Text("Ultimo posto!")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.orange)
-                    }
-                }
+                // Check-out oggi
+                DailyOperationCard(
+                    title: "Check-out Oggi",
+                    guests: todayCheckOutGuests(),
+                    icon: "door.left.hand.open",
+                    color: .orange
+                )
             }
         }
         .padding()
@@ -153,50 +67,233 @@ struct OccupancyVisualSection: View {
                 .fill(Color(NSColor.controlBackgroundColor))
                 .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         )
-        .sheet(isPresented: $showingSettings) {
-            OccupancySettingsView(totalBeds: $totalBeds, accommodationType: $accommodationType)
-        }
     }
     
-    // Calcola ospiti in check-in oggi
-    private func todayCheckIns() -> Int {
+    // Lista ospiti in check-in oggi
+    private func todayCheckInGuests() -> [Prenotazione] {
         let calendar = Calendar.current
         let today = Date()
         return viewModel.prenotazioni
             .filter { calendar.isDate($0.dataCheckIn, inSameDayAs: today) }
-            .reduce(0) { $0 + $1.numeroOspiti }
     }
     
-    // Calcola ospiti in check-out oggi
-    private func todayCheckOuts() -> Int {
+    // Lista ospiti in check-out oggi
+    private func todayCheckOutGuests() -> [Prenotazione] {
         let calendar = Calendar.current
         let today = Date()
         return viewModel.prenotazioni
             .filter { calendar.isDate($0.dataCheckOut, inSameDayAs: today) }
-            .reduce(0) { $0 + $1.numeroOspiti }
     }
 }
 
-struct StatRowItem: View {
-    let label: String
-    let value: String
-    let color: Color
+// MARK: - Current Guest Card
+struct CurrentGuestCard: View {
+    let prenotazione: Prenotazione
+    
+    private var daysRemaining: Int {
+        Calendar.current.dateComponents([.day], from: Date(), to: prenotazione.dataCheckOut).day ?? 0
+    }
     
     var body: some View {
-        HStack {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
+        HStack(spacing: 16) {
+            // Status indicator
+            VStack(spacing: 8) {
+                Image(systemName: "house.fill")
+                    .font(.title)
+                    .foregroundColor(.green)
+                
+                Text("OCCUPATA")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.green)
+            }
             
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            // Guest info
+            VStack(alignment: .leading, spacing: 6) {
+                Text(prenotazione.nomeOspite)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Text("\(prenotazione.numeroOspiti) ospiti")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                
+                HStack {
+                    Text("Check-out:")
+                        .foregroundColor(.secondary)
+                    Text(formatDate(prenotazione.dataCheckOut))
+                        .fontWeight(.medium)
+                }
+                .font(.callout)
+                
+                if daysRemaining > 0 {
+                    Text("\(daysRemaining) giorni rimanenti")
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(4)
+                }
+            }
             
             Spacer()
             
-            Text(value)
+            // Revenue info
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("€\(String(format: "%.0f", prenotazione.prezzoTotale))")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.green)
+                
+                Text("Ricavo totale")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.green.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM"
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Empty House Card
+struct EmptyHouseCard: View {
+    let nextReservation: Prenotazione?
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // Status indicator
+            VStack(spacing: 8) {
+                Image(systemName: "house")
+                    .font(.title)
+                    .foregroundColor(.gray)
+                
+                Text("LIBERA")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.gray)
+            }
+            
+            // Next reservation info
+            VStack(alignment: .leading, spacing: 6) {
+                if let next = nextReservation {
+                    Text("Prossimo ospite:")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                    
+                    Text(next.nomeOspite)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    HStack {
+                        Text("Check-in:")
+                            .foregroundColor(.secondary)
+                        Text(formatDate(next.dataCheckIn))
+                            .fontWeight(.medium)
+                    }
+                    .font(.callout)
+                } else {
+                    Text("Nessuna prenotazione")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    
+                    Text("La casa è disponibile")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            if let next = nextReservation {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("€\(String(format: "%.0f", next.prezzoTotale))")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                    
+                    Text("Prossimo ricavo")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.gray.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM"
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Daily Operation Card
+struct DailyOperationCard: View {
+    let title: String
+    let guests: [Prenotazione]
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                    .font(.title2)
+                
+                Spacer()
+                
+                Text("\(guests.count)")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(color)
+            }
+            
+            Text(title)
                 .font(.callout)
                 .fontWeight(.medium)
+            
+            if let guest = guests.first {
+                Text(guest.nomeOspite)
+                    .font(.caption)
+                    .foregroundColor(color)
+                    .lineLimit(1)
+            } else {
+                Text("Nessuno")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(color.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(color.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
 }
