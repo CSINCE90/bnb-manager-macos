@@ -120,6 +120,7 @@ extension GestionaleViewModel {
         }
     }
     
+    
     // MARK: - Conversione Modelli
     
     private func convertToPrenotazione(from cdObject: NSManagedObject) -> Prenotazione? {
@@ -165,6 +166,49 @@ extension GestionaleViewModel {
         )
     }
     
+
+
+     private func saveMovimentoFinanziarioToCoreData(_ movimento: MovimentoFinanziario, context: NSManagedObjectContext) -> Bool {
+         guard let entity = NSEntityDescription.entity(forEntityName: "CDMovimentoFinanziario", in: context) else {
+             print("❌ Entità CDMovimentoFinanziario non trovata")
+             return false
+         }
+         
+         // Controlla se esiste già
+         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "CDMovimentoFinanziario")
+         fetchRequest.predicate = NSPredicate(format: "id == %@", movimento.id as CVarArg)
+         
+         do {
+             let existingMovimenti = try context.fetch(fetchRequest)
+             let cdMovimento = existingMovimenti.first ?? NSManagedObject(entity: entity, insertInto: context)
+             
+             cdMovimento.setValue(movimento.id, forKey: "id")
+             cdMovimento.setValue(movimento.descrizione, forKey: "descrizione")
+             cdMovimento.setValue(movimento.importo, forKey: "importo")
+             cdMovimento.setValue(movimento.data, forKey: "data")
+             cdMovimento.setValue(movimento.tipo.rawValue, forKey: "tipo")
+             cdMovimento.setValue(movimento.categoria.rawValue, forKey: "categoria")
+             cdMovimento.setValue(movimento.metodoPagamento.rawValue, forKey: "metodoPagamento")
+             cdMovimento.setValue(movimento.note, forKey: "note")
+             cdMovimento.setValue(movimento.prenotazioneId, forKey: "prenotazioneId")
+             cdMovimento.setValue(Date(), forKey: "updatedAt")
+             
+             // Solo per i nuovi record
+             if existingMovimenti.isEmpty {
+                 cdMovimento.setValue(movimento.createdAt, forKey: "createdAt")
+             }
+             
+             return true
+             
+         } catch {
+             print("❌ Errore controllo esistenza movimento: \(error)")
+             return false
+         }
+     }
+     
+     
+
+    
     // MARK: - Migrazione a Core Data
     
     private func migrateExistingDataToCoreData() {
@@ -189,6 +233,9 @@ extension GestionaleViewModel {
             }
         }
         
+                
+ 
+        
         // Salva il contesto
         do {
             try context.save()
@@ -211,9 +258,20 @@ extension GestionaleViewModel {
         let deleteSpese = NSFetchRequest<NSFetchRequestResult>(entityName: "CDSpesa")
         let batchDeleteSpese = NSBatchDeleteRequest(fetchRequest: deleteSpese)
         
+        // Elimina movimenti esistenti
+        let deleteMovimenti = NSFetchRequest<NSFetchRequestResult>(entityName: "CDMovimentoFinanziario")
+        let batchDeleteMovimenti = NSBatchDeleteRequest(fetchRequest: deleteMovimenti)
+               
+        // Elimina bonifici esistenti
+        let deleteBonifici = NSFetchRequest<NSFetchRequestResult>(entityName: "CDBonifico")
+        let batchDeleteBonifici = NSBatchDeleteRequest(fetchRequest: deleteBonifici)
+               
+        
         do {
             try context.execute(batchDeletePren)
             try context.execute(batchDeleteSpese)
+            try context.execute(batchDeleteMovimenti)
+            try context.execute(batchDeleteBonifici)
             print("🧹 Core Data pulito prima della migrazione")
         } catch {
             print("⚠️ Errore pulizia Core Data: \(error)")
@@ -293,6 +351,7 @@ extension GestionaleViewModel {
             _ = saveSpesaToCoreData(spesa, context: context)
         }
         
+        
         // Commit
         do {
             try context.save()
@@ -370,4 +429,4 @@ extension GestionaleViewModel {
             }
         }
     }
-}
+} 

@@ -12,6 +12,7 @@ import SwiftUI
 class GestionaleViewModel: ObservableObject {
     @Published var prenotazioni: [Prenotazione] = []
     @Published var spese: [Spesa] = []
+    @Published var movimentiFinanziari: [MovimentoFinanziario] = []
     
     init() {
         caricaDati()
