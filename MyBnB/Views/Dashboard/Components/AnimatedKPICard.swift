@@ -16,7 +16,6 @@ struct AnimatedKPICards: View {
         LazyVGrid(columns: [
             GridItem(.flexible()),
             GridItem(.flexible()),
-            GridItem(.flexible()),
             GridItem(.flexible())
         ], spacing: 16) {
             
@@ -27,15 +26,6 @@ struct AnimatedKPICards: View {
                 color: .green,
                 trend: 12.5
             )
-            
-            ModernKPICard(
-                title: "Spese",
-                value: animateValues ? viewModel.speseTotali : 0,
-                icon: "creditcard.fill",
-                color: .red,
-                trend: -5.2
-            )
-            
             ModernKPICard(
                 title: "Profitto",
                 value: animateValues ? viewModel.profittoNetto : 0,

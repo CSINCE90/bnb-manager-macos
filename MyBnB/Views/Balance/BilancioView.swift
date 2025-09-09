@@ -3,25 +3,44 @@ import SwiftUI
 struct BilancioView: View {
     @ObservedObject var viewModel: GestionaleViewModel
     @StateObject private var bilancioService: BilancioService
+
+    // Filtro opzionale per prenotazione
+    private let initialFilterPrenotazioneId: UUID?
+    @State private var activeFilterPrenotazioneId: UUID? = nil
     
     @State private var showingAddMovimento = false
     @State private var selectedMovimento: MovimentoFinanziario?
     @State private var movimentoToEdit: MovimentoFinanziario?
     
-    init(viewModel: GestionaleViewModel) {
+    private let initialOpenAddOnAppear: Bool
+
+    init(viewModel: GestionaleViewModel, filterPrenotazioneId: UUID? = nil, openAddOnAppear: Bool = false) {
         self.viewModel = viewModel
         self._bilancioService = StateObject(wrappedValue: BilancioService(viewModel: viewModel))
+        self.initialFilterPrenotazioneId = filterPrenotazioneId
+        self.initialOpenAddOnAppear = openAddOnAppear
     }
     
     var body: some View {
         VStack {
-            // Header con titolo e bottone
-            HStack {
+            // Header con titolo, filtro e bottone
+            HStack(alignment: .center, spacing: 12) {
                 Text("Gestione Bilancio")
                     .font(.title2)
                     .fontWeight(.bold)
                 
                 Spacer()
+                
+                if let prenId = activeFilterPrenotazioneId,
+                   let pren = viewModel.prenotazioni.first(where: { $0.id == prenId }) {
+                    HStack(spacing: 6) {
+                        Text("Filtro: \(pren.nomeOspite)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Rimuovi filtro") { activeFilterPrenotazioneId = nil }
+                            .font(.caption)
+                    }
+                }
                 
                 Button("Nuovo Movimento") {
                     showingAddMovimento = true
@@ -39,7 +58,7 @@ struct BilancioView: View {
             
             // Lista movimenti
             List {
-                ForEach(bilancioService.movimenti) { movimento in
+                ForEach(displayMovimenti) { movimento in
                     MovimentoRowSimple(
                         movimento: movimento,
                         onDetail: { selectedMovimento = movimento },
@@ -55,7 +74,7 @@ struct BilancioView: View {
             .listStyle(PlainListStyle())
         }
         .sheet(isPresented: $showingAddMovimento) {
-            AddMovimentoSimpleView(bilancioService: bilancioService)
+            AddMovimentoSimpleView(bilancioService: bilancioService, prelinkedPrenotazioneId: activeFilterPrenotazioneId, prefilledDescrizione: prefilledDescrizione)
         }
         // FIX: Rimossa NavigationView aggiuntiva e impostata dimensione corretta
         .sheet(item: $selectedMovimento) { movimento in
@@ -67,6 +86,28 @@ struct BilancioView: View {
         .task {
             await bilancioService.loadData()
         }
+        .onAppear {
+            if activeFilterPrenotazioneId == nil {
+                activeFilterPrenotazioneId = initialFilterPrenotazioneId
+            }
+            if initialOpenAddOnAppear {
+                showingAddMovimento = true
+            }
+        }
+    }
+
+    private var displayMovimenti: [MovimentoFinanziario] {
+        if let prenId = activeFilterPrenotazioneId {
+            return bilancioService.movimenti.filter { $0.prenotazioneId == prenId }
+        }
+        return bilancioService.movimenti
+    }
+
+    private var prefilledDescrizione: String? {
+        guard let prenId = activeFilterPrenotazioneId,
+              let pren = viewModel.prenotazioni.first(where: { $0.id == prenId })
+        else { return nil }
+        return "Prenotazione: \(pren.nomeOspite)"
     }
 }
 
@@ -202,6 +243,8 @@ struct MovimentoRowSimple: View {
 // MARK: - Add Movimento Simple
 struct AddMovimentoSimpleView: View {
     let bilancioService: BilancioService
+    var prelinkedPrenotazioneId: UUID? = nil
+    var prefilledDescrizione: String? = nil
     @Environment(\.dismiss) private var dismiss
     
     @State private var descrizione = ""
@@ -211,6 +254,15 @@ struct AddMovimentoSimpleView: View {
     @State private var categoria: MovimentoFinanziario.CategoriaMovimento = .prenotazioni
     @State private var metodoPagamento: MovimentoFinanziario.MetodoPagamento = .contanti
     @State private var note = ""
+    @State private var strutturaId: UUID? = UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? "")
+    @StateObject private var strutturaRepo = StrutturaRepository()
+    
+    init(bilancioService: BilancioService, prelinkedPrenotazioneId: UUID? = nil, prefilledDescrizione: String? = nil) {
+        self.bilancioService = bilancioService
+        self.prelinkedPrenotazioneId = prelinkedPrenotazioneId
+        self.prefilledDescrizione = prefilledDescrizione
+        // Initialize _State defaults based on link (will be applied in onAppear)
+    }
     
     var body: some View {
         NavigationView {
@@ -246,7 +298,14 @@ struct AddMovimentoSimpleView: View {
                     }
                 }
                 
-                Section("Note") {
+                Section("Struttura & Note") {
+                    if !strutturaRepo.strutture.isEmpty {
+                        Picker("Struttura", selection: Binding(get: { strutturaId }, set: { strutturaId = $0 })) {
+                            ForEach(strutturaRepo.strutture, id: \.objectID) { s in
+                                Text(s.nome ?? "Senza nome").tag(s.id as UUID?)
+                            }
+                        }
+                    }
                     TextEditor(text: $note)
                         .frame(minHeight: 60)
                 }
@@ -266,6 +325,17 @@ struct AddMovimentoSimpleView: View {
             }
         }
         .frame(width: 500, height: 600)
+        .onAppear {
+            strutturaRepo.load()
+            if strutturaId == nil, let first = strutturaRepo.strutture.first?.id { strutturaId = first }
+        }
+        .onAppear {
+            if let desc = prefilledDescrizione, descrizione.isEmpty { descrizione = desc }
+            if prelinkedPrenotazioneId != nil {
+                categoria = .prenotazioni
+                metodoPagamento = .bookingcom
+            }
+        }
     }
     
     private var isFormValid: Bool {
@@ -282,12 +352,12 @@ struct AddMovimentoSimpleView: View {
             tipo: tipo,
             categoria: categoria,
             metodoPagamento: metodoPagamento,
-            note: note
+            note: note,
+            prenotazioneId: prelinkedPrenotazioneId,
+            strutturaId: strutturaId
         )
         
         await bilancioService.addMovimento(movimento)
         dismiss()
     }
 }
-
-

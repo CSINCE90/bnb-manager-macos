@@ -93,6 +93,10 @@ struct SettingsView: View {
                 
                 // Informazioni
                 Section("Informazioni") {
+                    Button("Logout") {
+                        AuthService.shared.logout()
+                    }
+                    
                     Button {
                         showingAbout = true
                     } label: {
@@ -142,12 +146,24 @@ struct SettingsView: View {
         }
     }
     
-    private func exportAsJSON() { print("Export JSON") }
+    private func exportAsJSON() {
+        if let data = DataExportService.shared.exportAllToJSON() {
+            let formatter = ISO8601DateFormatter()
+            let name = "MyBnB_Export_\(formatter.string(from: Date())).json".replacingOccurrences(of: ":", with: "-")
+            let url = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!.appendingPathComponent(name)
+            do {
+                try data.write(to: url)
+                print("✅ Esportazione completata: \(url.path)")
+            } catch {
+                print("❌ Errore esportazione: \(error)")
+            }
+        }
+    }
     private func exportAsCSV() { print("Export CSV") }
     
     private func resetAllData() {
         viewModel.prenotazioni.removeAll()
         viewModel.spese.removeAll()
-        viewModel.salvaDati()
+        //viewModel.salvaDati()
     }
 }

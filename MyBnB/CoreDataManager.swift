@@ -15,17 +15,24 @@ class CoreDataManager {
     
     // Container per Core Data
     lazy var persistentContainer: NSPersistentContainer = {
-        // IMPORTANTE: Prima devi creare il file MyBnBModel.xcdatamodeld in Xcode
         let container = NSPersistentContainer(name: "MyBnBModel")
         
-        container.loadPersistentStores { storeDescription, error in
+        // Abilita migrazione leggera automatica
+        if let description = container.persistentStoreDescriptions.first {
+            description.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+            description.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
+        }
+        
+        container.loadPersistentStores { _, error in
             if let error = error {
-                // Per ora stampiamo solo l'errore, il vecchio sistema JSON continuerà a funzionare
-                print("Core Data non disponibile: \(error)")
+                print("❌ Core Data non disponibile: \(error)")
             } else {
                 print("✅ Core Data pronto!")
             }
         }
+        
+        container.viewContext.automaticallyMergesChangesFromParent = true
+        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         
         return container
     }()

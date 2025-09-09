@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import CoreData
 
 @MainActor
 class BilancioService: ObservableObject {
@@ -15,7 +16,8 @@ class BilancioService: ObservableObject {
     @Published var riepiloghiMensili: [RiepilogoMensile] = []
     @Published var isLoading = false
     @Published var selectedMonth = Date()
-    
+    private let context = CoreDataManager.shared.viewContext
+
     private let viewModel: GestionaleViewModel
     
     init(viewModel: GestionaleViewModel) {
@@ -29,13 +31,14 @@ class BilancioService: ObservableObject {
     
     func loadData() async {
         isLoading = true
+        // Carica da Core Data
+        loadMovimentiFromCoreData()
+        loadBonificiFromCoreData()
         
-        // Genera automaticamente movimenti dalle prenotazioni
+        // Genera automaticamente movimenti dalle prenotazioni mancanti
         await generateMovimentiFromPrenotazioni()
-        
-        // Carica dati salvati
-        loadMovimenti()
-        loadBonifici()
+        // Migra eventuale legacy bonifici.json una sola volta
+        migrateLegacyBonificiIfNeeded()
         
         // Calcola riepiloghi mensili
         await calculateRiepiloghiMensili()
@@ -64,39 +67,60 @@ class BilancioService: ObservableObject {
             )
             
             movimenti.append(movimento)
+            // Persisti subito in Core Data
+            upsertMovimentoInCoreData(movimento)
         }
-        
-        saveMovimenti()
+        // Ricarica
+        loadMovimentiFromCoreData()
+    }
+
+    // MARK: - Legacy Migration
+    private func migrateLegacyBonificiIfNeeded() {
+        let flagKey = "migrated_legacy_bonifici"
+        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let url = documents.appendingPathComponent("bonifici.json")
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let decoded = try JSONDecoder().decode([Bonifico].self, from: data)
+            for b in decoded { upsertBonificoInCoreData(b) }
+            try? FileManager.default.removeItem(at: url)
+            UserDefaults.standard.set(true, forKey: flagKey)
+            loadBonificiFromCoreData()
+            print("✅ Migrazione legacy bonifici.json completata")
+        } catch {
+            print("⚠️ Errore migrazione legacy bonifici: \(error)")
+        }
     }
     
     // MARK: - CRUD Movimenti
     
     func addMovimento(_ movimento: MovimentoFinanziario) async {
-        movimenti.append(movimento)
-        saveMovimenti()
+        upsertMovimentoInCoreData(movimento)
+        loadMovimentiFromCoreData()
         await calculateRiepiloghiMensili()
     }
     
     func updateMovimento(_ movimento: MovimentoFinanziario) async {
-        if let index = movimenti.firstIndex(where: { $0.id == movimento.id }) {
-            var updated = movimento
-            updated.updatedAt = Date()
-            movimenti[index] = updated
-            saveMovimenti()
-            await calculateRiepiloghiMensili()
-        }
+        var updated = movimento
+        updated.updatedAt = Date()
+        upsertMovimentoInCoreData(updated)
+        loadMovimentiFromCoreData()
+        await calculateRiepiloghiMensili()
     }
     
     func deleteMovimento(_ movimento: MovimentoFinanziario) async {
-        movimenti.removeAll { $0.id == movimento.id }
-        saveMovimenti()
+        deleteMovimentoFromCoreData(movimento.id)
+        loadMovimentiFromCoreData()
         await calculateRiepiloghiMensili()
     }
     
     // MARK: - CRUD Bonifici
     
     func addBonifico(_ bonifico: Bonifico) async {
-        bonifici.append(bonifico)
+        // Persisti bonifico
+        upsertBonificoInCoreData(bonifico)
         
         // Crea automaticamente un movimento finanziario associato
         let movimento = MovimentoFinanziario(
@@ -111,48 +135,43 @@ class BilancioService: ObservableObject {
         
         await addMovimento(movimento)
         
-        // Collega il movimento al bonifico
+        // Collega il movimento al bonifico e salva
         var updatedBonifico = bonifico
         updatedBonifico.movimentoId = movimento.id
-        
-        if let index = bonifici.firstIndex(where: { $0.id == bonifico.id }) {
-            bonifici[index] = updatedBonifico
-        }
-        
-        saveBonifici()
+        upsertBonificoInCoreData(updatedBonifico)
+        loadBonificiFromCoreData()
     }
     
     func updateBonifico(_ bonifico: Bonifico) async {
-        if let index = bonifici.firstIndex(where: { $0.id == bonifico.id }) {
-            var updated = bonifico
-            updated.updatedAt = Date()
-            bonifici[index] = updated
-            saveBonifici()
-            
-            // Aggiorna anche il movimento associato se esiste
-            if let movimentoId = bonifico.movimentoId,
-               let movimentoIndex = movimenti.firstIndex(where: { $0.id == movimentoId }) {
-                var movimento = movimenti[movimentoIndex]
-                movimento.importo = abs(bonifico.importoNetto)
-                movimento.descrizione = "Bonifico: \(bonifico.causale)"
-                movimento.data = bonifico.data
-                movimento.note = "CRO: \(bonifico.cro)"
-                movimento.updatedAt = Date()
-                movimenti[movimentoIndex] = movimento
-                saveMovimenti()
-            }
+        var updated = bonifico
+        updated.updatedAt = Date()
+        upsertBonificoInCoreData(updated)
+        
+        // Aggiorna anche il movimento associato se esiste
+        if let movimentoId = bonifico.movimentoId,
+           let movimentoIndex = movimenti.firstIndex(where: { $0.id == movimentoId }) {
+            var movimento = movimenti[movimentoIndex]
+            movimento.importo = abs(bonifico.importoNetto)
+            movimento.descrizione = "Bonifico: \(bonifico.causale)"
+            movimento.data = bonifico.data
+            movimento.note = "CRO: \(bonifico.cro)"
+            movimento.updatedAt = Date()
+            upsertMovimentoInCoreData(movimento)
         }
+        
+        loadMovimentiFromCoreData()
+        loadBonificiFromCoreData()
     }
     
     func deleteBonifico(_ bonifico: Bonifico) async {
         // Elimina anche il movimento associato
         if let movimentoId = bonifico.movimentoId {
-            movimenti.removeAll { $0.id == movimentoId }
-            saveMovimenti()
+            deleteMovimentoFromCoreData(movimentoId)
         }
         
-        bonifici.removeAll { $0.id == bonifico.id }
-        saveBonifici()
+        deleteBonificoFromCoreData(bonifico.id)
+        loadMovimentiFromCoreData()
+        loadBonificiFromCoreData()
         await calculateRiepiloghiMensili()
     }
     
@@ -257,40 +276,197 @@ class BilancioService: ObservableObject {
         }
     }
     
-    // MARK: - Persistenza
+    // MARK: - Persistenza Core Data
     
-    private func saveMovimenti() {
-        if let encoded = try? JSONEncoder().encode(movimenti) {
-            let url = getDocumentsDirectory().appendingPathComponent("movimenti.json")
-            try? encoded.write(to: url)
+    private func loadMovimentiFromCoreData() {
+        let request = NSFetchRequest<NSManagedObject>(entityName: "CDMovimentoFinanziario")
+        request.sortDescriptors = [NSSortDescriptor(key: "data", ascending: false)]
+        request.fetchBatchSize = 200
+        if let activeId = UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? "") {
+            request.predicate = NSPredicate(format: "strutturaId == %@ OR strutturaId == nil", activeId as CVarArg)
+        }
+        do {
+            let items = try context.fetch(request)
+            self.movimenti = items.compactMap { (cd) -> MovimentoFinanziario? in
+                guard let descrizione = cd.value(forKey: "descrizione") as? String,
+                      let importo = cd.value(forKey: "importo") as? Double,
+                      let data = cd.value(forKey: "data") as? Date,
+                      let tipoRaw = cd.value(forKey: "tipo") as? String,
+                      let categoriaRaw = cd.value(forKey: "categoria") as? String,
+                      let metodoPagamentoRaw = cd.value(forKey: "metodoPagamento") as? String
+                else { return nil }
+                let id = cd.value(forKey: "id") as? UUID ?? UUID()
+                let note = cd.value(forKey: "note") as? String ?? ""
+                let prenotazioneId = cd.value(forKey: "prenotazioneId") as? UUID
+                let updatedAt = cd.value(forKey: "updatedAt") as? Date ?? Date()
+                let createdAt = cd.value(forKey: "createdAt") as? Date ?? Date()
+                guard let tipo = MovimentoFinanziario.TipoMovimento(rawValue: tipoRaw),
+                      let categoria = MovimentoFinanziario.CategoriaMovimento(rawValue: categoriaRaw),
+                      let metodoPagamento = MovimentoFinanziario.MetodoPagamento(rawValue: metodoPagamentoRaw)
+                else { return nil }
+                return MovimentoFinanziario(
+                    id: id,
+                    descrizione: descrizione,
+                    importo: importo,
+                    data: data,
+                    tipo: tipo,
+                    categoria: categoria,
+                    metodoPagamento: metodoPagamento,
+                    note: note,
+                    prenotazioneId: prenotazioneId,
+                    updatedAt: updatedAt,
+                    createdAt: createdAt
+                )
+            }
+        } catch {
+            print("❌ Errore caricamento movimenti: \(error)")
         }
     }
     
-    private func loadMovimenti() {
-        let url = getDocumentsDirectory().appendingPathComponent("movimenti.json")
-        if let data = try? Data(contentsOf: url),
-           let decoded = try? JSONDecoder().decode([MovimentoFinanziario].self, from: data) {
-            movimenti = decoded
+    private func upsertMovimentoInCoreData(_ movimento: MovimentoFinanziario) {
+        guard let entity = NSEntityDescription.entity(forEntityName: "CDMovimentoFinanziario", in: context) else { return }
+        let fetch = NSFetchRequest<NSManagedObject>(entityName: "CDMovimentoFinanziario")
+        fetch.predicate = NSPredicate(format: "id == %@", movimento.id as CVarArg)
+        do {
+            let existing = try context.fetch(fetch)
+            let cd = existing.first ?? NSManagedObject(entity: entity, insertInto: context)
+            cd.setValue(movimento.id, forKey: "id")
+            cd.setValue(movimento.descrizione, forKey: "descrizione")
+            cd.setValue(movimento.importo, forKey: "importo")
+            cd.setValue(movimento.data, forKey: "data")
+            cd.setValue(movimento.tipo.rawValue, forKey: "tipo")
+            cd.setValue(movimento.categoria.rawValue, forKey: "categoria")
+            cd.setValue(movimento.metodoPagamento.rawValue, forKey: "metodoPagamento")
+            cd.setValue(movimento.note, forKey: "note")
+            cd.setValue(movimento.prenotazioneId, forKey: "prenotazioneId")
+            cd.setValue(Date(), forKey: "updatedAt")
+            if let activeId = UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? "") {
+                cd.setValue(activeId, forKey: "strutturaId")
+            }
+            if existing.isEmpty { cd.setValue(movimento.createdAt, forKey: "createdAt") }
+
+            // Collega relazione alla prenotazione se disponibile
+            if let prenId = movimento.prenotazioneId {
+                let req = NSFetchRequest<NSManagedObject>(entityName: "CDPrenotazione")
+                req.predicate = NSPredicate(format: "id == %@", prenId as CVarArg)
+                if let cdPren = try context.fetch(req).first {
+                    cd.setValue(cdPren, forKey: "prenotazione")
+                } else {
+                    cd.setValue(nil, forKey: "prenotazione")
+                }
+            } else {
+                cd.setValue(nil, forKey: "prenotazione")
+            }
+            try context.save()
+        } catch {
+            print("❌ Errore salvataggio movimento: \(error)")
         }
     }
     
-    private func saveBonifici() {
-        if let encoded = try? JSONEncoder().encode(bonifici) {
-            let url = getDocumentsDirectory().appendingPathComponent("bonifici.json")
-            try? encoded.write(to: url)
+    private func deleteMovimentoFromCoreData(_ id: UUID) {
+        let fetch = NSFetchRequest<NSManagedObject>(entityName: "CDMovimentoFinanziario")
+        fetch.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        do {
+            let existing = try context.fetch(fetch)
+            for item in existing { context.delete(item) }
+            try context.save()
+        } catch {
+            print("❌ Errore eliminazione movimento: \(error)")
         }
     }
     
-    private func loadBonifici() {
-        let url = getDocumentsDirectory().appendingPathComponent("bonifici.json")
-        if let data = try? Data(contentsOf: url),
-           let decoded = try? JSONDecoder().decode([Bonifico].self, from: data) {
-            bonifici = decoded
+    private func loadBonificiFromCoreData() {
+        guard NSManagedObjectModel.mergedModel(from: nil)?.entitiesByName["CDBonifico"] != nil else { return }
+        let request = NSFetchRequest<NSManagedObject>(entityName: "CDBonifico")
+        request.sortDescriptors = [NSSortDescriptor(key: "data", ascending: false)]
+        request.fetchBatchSize = 200
+        do {
+            let items = try context.fetch(request)
+            self.bonifici = items.compactMap { (cd) -> Bonifico? in
+                let id = cd.value(forKey: "id") as? UUID ?? UUID()
+                guard let importo = cd.value(forKey: "importo") as? Double,
+                      let data = cd.value(forKey: "data") as? Date,
+                      let tipoRaw = cd.value(forKey: "tipo") as? String,
+                      let statoRaw = cd.value(forKey: "stato") as? String
+                else { return nil }
+                let dataValuta = cd.value(forKey: "dataValuta") as? Date
+                let ordinante = cd.value(forKey: "ordinante") as? String ?? ""
+                let beneficiario = cd.value(forKey: "beneficiario") as? String ?? ""
+                let causale = cd.value(forKey: "causale") as? String ?? ""
+                let cro = cd.value(forKey: "cro") as? String ?? ""
+                let iban = cd.value(forKey: "iban") as? String ?? ""
+                let banca = cd.value(forKey: "banca") as? String ?? ""
+                let commissioni = cd.value(forKey: "commissioni") as? Double ?? 0
+                let note = cd.value(forKey: "note") as? String ?? ""
+                let movimentoId = cd.value(forKey: "movimentoId") as? UUID
+                guard let tipo = Bonifico.TipoBonifico(rawValue: tipoRaw),
+                      let stato = Bonifico.StatoBonifico(rawValue: statoRaw) else { return nil }
+                let bonifico = Bonifico(
+                    id: id,
+                    importo: importo,
+                    data: data,
+                    dataValuta: dataValuta,
+                    ordinante: ordinante,
+                    beneficiario: beneficiario,
+                    causale: causale,
+                    cro: cro,
+                    iban: iban,
+                    banca: banca,
+                    tipo: tipo,
+                    stato: stato,
+                    commissioni: commissioni,
+                    note: note,
+                    movimentoId: movimentoId
+                )
+                return bonifico
+            }
+        } catch {
+            print("❌ Errore caricamento bonifici: \(error)")
         }
     }
     
-    private func getDocumentsDirectory() -> URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+    private func upsertBonificoInCoreData(_ bonifico: Bonifico) {
+        guard NSManagedObjectModel.mergedModel(from: nil)?.entitiesByName["CDBonifico"] != nil else { return }
+        guard let entity = NSEntityDescription.entity(forEntityName: "CDBonifico", in: context) else { return }
+        let fetch = NSFetchRequest<NSManagedObject>(entityName: "CDBonifico")
+        fetch.predicate = NSPredicate(format: "id == %@", bonifico.id as CVarArg)
+        do {
+            let existing = try context.fetch(fetch)
+            let cd = existing.first ?? NSManagedObject(entity: entity, insertInto: context)
+            cd.setValue(bonifico.id, forKey: "id")
+            cd.setValue(bonifico.importo, forKey: "importo")
+            cd.setValue(bonifico.data, forKey: "data")
+            cd.setValue(bonifico.dataValuta, forKey: "dataValuta")
+            cd.setValue(bonifico.ordinante, forKey: "ordinante")
+            cd.setValue(bonifico.beneficiario, forKey: "beneficiario")
+            cd.setValue(bonifico.causale, forKey: "causale")
+            cd.setValue(bonifico.cro, forKey: "cro")
+            cd.setValue(bonifico.iban, forKey: "iban")
+            cd.setValue(bonifico.banca, forKey: "banca")
+            cd.setValue(bonifico.tipo.rawValue, forKey: "tipo")
+            cd.setValue(bonifico.stato.rawValue, forKey: "stato")
+            cd.setValue(bonifico.commissioni, forKey: "commissioni")
+            cd.setValue(bonifico.note, forKey: "note")
+            cd.setValue(bonifico.movimentoId, forKey: "movimentoId")
+            cd.setValue(Date(), forKey: "updatedAt")
+            if existing.isEmpty { cd.setValue(bonifico.createdAt, forKey: "createdAt") }
+            try context.save()
+        } catch {
+            print("❌ Errore salvataggio bonifico: \(error)")
+        }
+    }
+    
+    private func deleteBonificoFromCoreData(_ id: UUID) {
+        guard NSManagedObjectModel.mergedModel(from: nil)?.entitiesByName["CDBonifico"] != nil else { return }
+        let fetch = NSFetchRequest<NSManagedObject>(entityName: "CDBonifico")
+        fetch.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        do {
+            let existing = try context.fetch(fetch)
+            for item in existing { context.delete(item) }
+            try context.save()
+        } catch {
+            print("❌ Errore eliminazione bonifico: \(error)")
+        }
     }
     
     // MARK: - Export & Import

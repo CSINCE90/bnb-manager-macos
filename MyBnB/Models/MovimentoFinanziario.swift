@@ -10,7 +10,7 @@ import SwiftUI
 
 // MARK: - MovimentoFinanziario
 struct MovimentoFinanziario: Identifiable, Codable {
-    let id = UUID()
+    var id: UUID = UUID()
     var descrizione: String
     var importo: Double
     var data: Date
@@ -19,8 +19,9 @@ struct MovimentoFinanziario: Identifiable, Codable {
     var metodoPagamento: MetodoPagamento
     var note: String = ""
     var prenotazioneId: UUID?
+    var strutturaId: UUID? = nil
     var updatedAt = Date()
-    let createdAt = Date()
+    var createdAt: Date = Date()
     
     enum TipoMovimento: String, CaseIterable, Codable {
         case entrata = "Entrata"
@@ -95,9 +96,11 @@ struct MovimentoFinanziario: Identifiable, Codable {
         }
     }
 }
+
+// (Usiamo l'init memberwise sintetizzato da Swift)
 // MARK: - Bonifico
 struct Bonifico: Identifiable, Codable {
-    let id = UUID()
+    var id: UUID
     var importo: Double
     var data: Date
     var dataValuta: Date?
@@ -154,6 +157,42 @@ struct Bonifico: Identifiable, Codable {
             case .rifiutato: return .red
             }
         }
+    }
+}
+
+extension Bonifico {
+    init(
+        id: UUID = UUID(),
+        importo: Double,
+        data: Date,
+        dataValuta: Date? = nil,
+        ordinante: String,
+        beneficiario: String,
+        causale: String,
+        cro: String,
+        iban: String,
+        banca: String,
+        tipo: TipoBonifico,
+        stato: StatoBonifico = .inAttesa,
+        commissioni: Double = 0.0,
+        note: String = "",
+        movimentoId: UUID? = nil
+    ) {
+        self.id = id
+        self.importo = importo
+        self.data = data
+        self.dataValuta = dataValuta
+        self.ordinante = ordinante
+        self.beneficiario = beneficiario
+        self.causale = causale
+        self.cro = cro
+        self.iban = iban
+        self.banca = banca
+        self.tipo = tipo
+        self.stato = stato
+        self.commissioni = commissioni
+        self.note = note
+        self.movimentoId = movimentoId
     }
 }
 // MARK: - RiepilogoMensile

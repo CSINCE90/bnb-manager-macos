@@ -2,102 +2,59 @@
 //  GestionaleViewModel+MovimentiFinanziari.swift
 //  MyBnB
 //
-//  Estensione semplificata per gestire solo MovimentiFinanziari in Core Data
+//  Estensione per gestire MovimentiFinanziari SOLO in Core Data
+//  Integrata con il nuovo approccio senza JSON
 //
 
 import Foundation
 import SwiftUI
 import CoreData
 
-// MARK: - Extension per Movimenti Finanziari
+// MARK: - Extension per Movimenti Finanziari (Solo Core Data)
 extension GestionaleViewModel {
     
-    // MARK: - Caricamento Movimenti da Core Data
+    // MARK: - Gestione Movimenti Finanziari
     
-    func loadMovimentoFinanziarioFromCoreData() {
-        let context = CoreDataManager.shared.viewContext
-        let request = NSFetchRequest<NSManagedObject>(entityName: "CDMovimentoFinanziario")
-        request.sortDescriptors = [NSSortDescriptor(key: "data", ascending: false)]
-        
-        do {
-            let cdMovimenti = try context.fetch(request)
-            var loadedMovimenti: [MovimentoFinanziario] = []
-            
-            for cd in cdMovimenti {
-                if let movimento = convertToMovimentoFinanziario(from: cd) {
-                    loadedMovimenti.append(movimento)
-                }
-            }
-            
-            if !loadedMovimenti.isEmpty {
-                self.movimentiFinanziari = loadedMovimenti
-                print("✅ Caricati \(loadedMovimenti.count) movimenti finanziari da Core Data")
-            }
-            
-        } catch {
-            print("❌ Errore caricamento movimenti finanziari: \(error)")
+    func aggiungiMovimentoFinanziario(_ movimento: MovimentoFinanziario) {
+        salvaMovimentoFinanziario(movimento)
+    }
+    
+    func modificaMovimentoFinanziario(_ movimento: MovimentoFinanziario) {
+        salvaMovimentoFinanziario(movimento) // Stessa logica, Core Data gestisce update/insert
+    }
+    
+    func eliminaMovimentoFinanziario(_ movimento: MovimentoFinanziario) {
+        eliminaMovimentoFinanziarioDaCoreData(movimento)
+    }
+    
+    func eliminaMovimentoFinanziario(at offsets: IndexSet) {
+        for index in offsets {
+            let movimento = movimentiFinanziari[index]
+            eliminaMovimentoFinanziarioDaCoreData(movimento)
         }
     }
     
-    // MARK: - Conversione da Core Data a Model
-    
-    private func convertToMovimentoFinanziario(from cdObject: NSManagedObject) -> MovimentoFinanziario? {
-        guard let descrizione = cdObject.value(forKey: "descrizione") as? String,
-              let importo = cdObject.value(forKey: "importo") as? Double,
-              let data = cdObject.value(forKey: "data") as? Date,
-              let tipoRaw = cdObject.value(forKey: "tipo") as? String,
-              let categoriaRaw = cdObject.value(forKey: "categoria") as? String,
-              let metodoPagamentoRaw = cdObject.value(forKey: "metodoPagamento") as? String else {
-            return nil
-        }
-
-        let note = cdObject.value(forKey: "note") as? String ?? ""
-        let prenotazioneId = cdObject.value(forKey: "prenotazioneId") as? UUID
-        let updatedAt = cdObject.value(forKey: "updatedAt") as? Date ?? Date()
-        let createdAt = cdObject.value(forKey: "createdAt") as? Date ?? Date()
-
-        guard let tipo = MovimentoFinanziario.TipoMovimento(rawValue: tipoRaw),
-              let categoria = MovimentoFinanziario.CategoriaMovimento(rawValue: categoriaRaw),
-              let metodoPagamento = MovimentoFinanziario.MetodoPagamento(rawValue: metodoPagamentoRaw) else {
-            return nil
-        }
-
-        return MovimentoFinanziario(
-            descrizione: descrizione,
-            importo: importo,
-            data: data,
-            tipo: tipo,
-            categoria: categoria,
-            metodoPagamento: metodoPagamento,
-            note: note,
-            prenotazioneId: prenotazioneId,
-            updatedAt: updatedAt
-            
-        )
-    }
-    
-    // MARK: - Salvataggio in Core Data
+    // MARK: - Salvataggio Movimenti Finanziari
     
     func salvaMovimentoFinanziario(_ movimento: MovimentoFinanziario) {
         let context = CoreDataManager.shared.viewContext
         
-        if saveMovimentoFinanziarioToCoreData(movimento, context: context) {
+        if salvaMovimentoFinanziarioInCoreData(movimento, context: context) {
             do {
                 try context.save()
                 
                 // Aggiorna l'array locale
-                if let index = movimentiFinanziari.firstIndex(where: { $0.id == movimento.id }) {
-                    movimentiFinanziari[index] = movimento
-                } else {
-                    movimentiFinanziari.append(movimento)
-                    // Ordina per data (più recenti prima)
-                    movimentiFinanziari.sort { $0.data > $1.data }
+                DispatchQueue.main.async {
+                    if let index = self.movimentiFinanziari.firstIndex(where: { $0.id == movimento.id }) {
+                        self.movimentiFinanziari[index] = movimento
+                    } else {
+                        self.movimentiFinanziari.append(movimento)
+                        // Ordina per data (più recenti prima)
+                        self.movimentiFinanziari.sort { $0.data > $1.data }
+                    }
                 }
                 
                 print("✅ Movimento finanziario salvato in Core Data")
-                
-                // Mantieni compatibilità con JSON
-                salvaDati()
                 
             } catch {
                 print("❌ Errore salvataggio movimento finanziario: \(error)")
@@ -105,7 +62,38 @@ extension GestionaleViewModel {
         }
     }
     
-    private func saveMovimentoFinanziarioToCoreData(_ movimento: MovimentoFinanziario, context: NSManagedObjectContext) -> Bool {
+    // MARK: - Eliminazione Movimenti Finanziari
+    
+    private func eliminaMovimentoFinanziarioDaCoreData(_ movimento: MovimentoFinanziario) {
+        let context = CoreDataManager.shared.viewContext
+        
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "CDMovimentoFinanziario")
+        fetchRequest.predicate = NSPredicate(format: "id == %@", movimento.id as CVarArg)
+        
+        do {
+            let movimentiDaEliminare = try context.fetch(fetchRequest)
+            
+            for mov in movimentiDaEliminare {
+                context.delete(mov)
+            }
+            
+            try context.save()
+            
+            // Rimuovi dall'array locale
+            DispatchQueue.main.async {
+                self.movimentiFinanziari.removeAll { $0.id == movimento.id }
+            }
+            
+            print("✅ Movimento finanziario eliminato")
+            
+        } catch {
+            print("❌ Errore eliminazione movimento finanziario: \(error)")
+        }
+    }
+    
+    // MARK: - Helper per Salvataggio Core Data
+    
+    private func salvaMovimentoFinanziarioInCoreData(_ movimento: MovimentoFinanziario, context: NSManagedObjectContext) -> Bool {
         guard let entity = NSEntityDescription.entity(forEntityName: "CDMovimentoFinanziario", in: context) else {
             print("❌ Entità CDMovimentoFinanziario non trovata")
             return false
@@ -127,11 +115,28 @@ extension GestionaleViewModel {
             cdMovimento.setValue(movimento.categoria.rawValue, forKey: "categoria")
             cdMovimento.setValue(movimento.metodoPagamento.rawValue, forKey: "metodoPagamento")
             cdMovimento.setValue(movimento.note, forKey: "note")
+            cdMovimento.setValue(movimento.prenotazioneId, forKey: "prenotazioneId")
             cdMovimento.setValue(Date(), forKey: "updatedAt")
+            if let activeId = UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? "") {
+                cdMovimento.setValue(activeId, forKey: "strutturaId")
+            }
             
             // Solo per i nuovi record
             if existingMovimenti.isEmpty {
                 cdMovimento.setValue(movimento.createdAt, forKey: "createdAt")
+            }
+
+            // Collega relazione alla prenotazione se disponibile
+            if let prenId = movimento.prenotazioneId {
+                let req = NSFetchRequest<NSManagedObject>(entityName: "CDPrenotazione")
+                req.predicate = NSPredicate(format: "id == %@", prenId as CVarArg)
+                if let cdPren = try context.fetch(req).first {
+                    cdMovimento.setValue(cdPren, forKey: "prenotazione")
+                } else {
+                    cdMovimento.setValue(nil, forKey: "prenotazione")
+                }
+            } else {
+                cdMovimento.setValue(nil, forKey: "prenotazione")
             }
             
             return true
@@ -142,81 +147,73 @@ extension GestionaleViewModel {
         }
     }
     
-    // MARK: - Eliminazione
+    // MARK: - Calcoli e Statistiche Movimenti
     
-    func eliminaMovimentoFinanziario(_ movimento: MovimentoFinanziario) {
-        let context = CoreDataManager.shared.viewContext
+    var entrateMovimenti: Double {
+        movimentiFinanziari
+            .filter { $0.tipo == .entrata }
+            .reduce(0) { $0 + $1.importo }
+    }
+    
+    var usciteMovimenti: Double {
+        movimentiFinanziari
+            .filter { $0.tipo == .uscita }
+            .reduce(0) { $0 + $1.importo }
+    }
+    
+    var saldoMovimenti: Double {
+        entrateMovimenti - usciteMovimenti
+    }
+    
+    func movimentiPerCategoria(_ categoria: MovimentoFinanziario.CategoriaMovimento) -> [MovimentoFinanziario] {
+        movimentiFinanziari.filter { $0.categoria == categoria }
+    }
+    
+    func movimentiPerMese(mese: Int, anno: Int) -> [MovimentoFinanziario] {
+        movimentiFinanziari.filter { movimento in
+            let calendar = Calendar.current
+            let components = calendar.dateComponents([.month, .year], from: movimento.data)
+            return components.month == mese && components.year == anno
+        }
+    }
+    
+    // MARK: - Migrazione da JSON (Da usare solo una volta se necessario)
+    
+    func migraDaJSONSeNecessario() {
+        // Solo se hai ancora dati JSON da migrare
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let movimentiURL = documentsURL.appendingPathComponent("movimenti.json")
         
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "CDMovimentoFinanziario")
-        fetchRequest.predicate = NSPredicate(format: "id == %@", movimento.id as CVarArg)
+        guard FileManager.default.fileExists(atPath: movimentiURL.path) else {
+            print("📄 Nessun file JSON dei movimenti da migrare")
+            return
+        }
         
         do {
-            let movimentiDaEliminare = try context.fetch(fetchRequest)
+            let jsonData = try Data(contentsOf: movimentiURL)
+            let decoder = JSONDecoder()
+            let movimentiDaJSON = try decoder.decode([MovimentoFinanziario].self, from: jsonData)
             
-            for mov in movimentiDaEliminare {
-                context.delete(mov)
+            print("🔄 Migrazione \(movimentiDaJSON.count) movimenti da JSON a Core Data...")
+            
+            let context = CoreDataManager.shared.viewContext
+            
+            for movimento in movimentiDaJSON {
+                _ = salvaMovimentoFinanziarioInCoreData(movimento, context: context)
             }
             
             try context.save()
             
-            // Rimuovi dall'array locale
-            movimentiFinanziari.removeAll { $0.id == movimento.id }
+            // Ricarica i dati
+            caricaMovimentiFinanziariDaCoreData()
             
-            print("✅ Movimento finanziario eliminato")
+            // Elimina il file JSON dopo la migrazione
+            try FileManager.default.removeItem(at: movimentiURL)
             
-            // Mantieni compatibilità con JSON
-            salvaDati()
+            print("✅ Migrazione movimenti completata e file JSON eliminato")
             
         } catch {
-            print("❌ Errore eliminazione movimento finanziario: \(error)")
+            print("❌ Errore durante la migrazione movimenti: \(error)")
         }
-    }
-    
-    // MARK: - Migrazione e Pulizia
-    
-    func migrateMovimentiFinanziariToCoreData() {
-        let context = CoreDataManager.shared.viewContext
-        
-        // Pulisci i dati esistenti
-        cleanMovimentiFinanziariCoreData()
-        
-        // Migra Movimenti Finanziari
-        var migratedMovimenti = 0
-        for movimento in self.movimentiFinanziari {
-            if saveMovimentoFinanziarioToCoreData(movimento, context: context) {
-                migratedMovimenti += 1
-            }
-        }
-        
-        // Salva il contesto
-        do {
-            try context.save()
-            print("✅ Migrazione movimenti finanziari completata: \(migratedMovimenti) movimenti")
-        } catch {
-            print("❌ Errore durante la migrazione movimenti finanziari: \(error)")
-        }
-    }
-    
-    private func cleanMovimentiFinanziariCoreData() {
-        let context = CoreDataManager.shared.viewContext
-        
-        let deleteMovimenti = NSFetchRequest<NSFetchRequestResult>(entityName: "CDMovimentoFinanziario")
-        let batchDeleteMovimenti = NSBatchDeleteRequest(fetchRequest: deleteMovimenti)
-        
-        do {
-            try context.execute(batchDeleteMovimenti)
-            print("🧹 Core Data movimenti finanziari pulito prima della migrazione")
-        } catch {
-            print("⚠️ Errore pulizia Core Data movimenti finanziari: \(error)")
-        }
-    }
-    
-
-    
-    // MARK: - Helper
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
-        return formatter.string(from: date)
     }
 }

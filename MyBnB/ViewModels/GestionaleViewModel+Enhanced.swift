@@ -25,15 +25,20 @@ extension GestionaleViewModel {
             return
         }
         
-        // Carica dati da Core Data
+        // Carica dati esistenti da Core Data
         loadFromCoreData()
         
-        // Se Core Data è vuoto, migra i dati esistenti
-        if isCoreDataEmpty() {
-            print("📦 Core Data vuoto, migrazione dati esistenti...")
+        // Esegui eventualmente una migrazione UNA SOLA VOLTA
+        let hasMigratedKey = "coreDataMigrated"
+        let hasMigrated = UserDefaults.standard.bool(forKey: hasMigratedKey)
+        if !hasMigrated && isCoreDataEmpty() == true {
+            print("📦 Core Data vuoto, migrazione iniziale dei dati esistenti...")
             migrateExistingDataToCoreData()
+            UserDefaults.standard.set(true, forKey: hasMigratedKey)
+            // Ricarica da Core Data post-migrazione
+            loadFromCoreData()
         } else {
-            print("✅ Core Data già popolato con \(prenotazioni.count) prenotazioni")
+            print("✅ Core Data già inizializzato")
         }
     }
     
@@ -58,8 +63,9 @@ extension GestionaleViewModel {
             let count = try context.count(for: requestPren)
             return count == 0
         } catch {
+            // In caso di errore, NON eseguire migrazione/distruzione dati
             print("⚠️ Errore verifica Core Data: \(error)")
-            return true
+            return false
         }
     }
     
@@ -74,6 +80,10 @@ extension GestionaleViewModel {
         let context = CoreDataManager.shared.viewContext
         let request = NSFetchRequest<NSManagedObject>(entityName: "CDPrenotazione")
         request.sortDescriptors = [NSSortDescriptor(key: "dataCheckIn", ascending: true)]
+        if let activeId = UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? "") {
+            request.predicate = NSPredicate(format: "strutturaId == %@ OR strutturaId == nil", activeId as CVarArg)
+        }
+        request.fetchBatchSize = 100
         
         do {
             let cdPrenotazioni = try context.fetch(request)
@@ -99,6 +109,10 @@ extension GestionaleViewModel {
         let context = CoreDataManager.shared.viewContext
         let request = NSFetchRequest<NSManagedObject>(entityName: "CDSpesa")
         request.sortDescriptors = [NSSortDescriptor(key: "data", ascending: false)]
+        if let activeId = UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? "") {
+            request.predicate = NSPredicate(format: "strutturaId == %@ OR strutturaId == nil", activeId as CVarArg)
+        }
+        request.fetchBatchSize = 100
         
         do {
             let cdSpese = try context.fetch(request)
@@ -134,10 +148,12 @@ extension GestionaleViewModel {
             return nil
         }
         
+        let id = cdObject.value(forKey: "id") as? UUID ?? UUID()
         let telefono = cdObject.value(forKey: "telefono") as? String ?? ""
         let note = cdObject.value(forKey: "note") as? String ?? ""
         
         return Prenotazione(
+            id: id,
             nomeOspite: nomeOspite,
             email: email,
             telefono: telefono,
@@ -158,7 +174,9 @@ extension GestionaleViewModel {
             return nil
         }
         
+        let id = cdObject.value(forKey: "id") as? UUID ?? UUID()
         return Spesa(
+            id: id,
             descrizione: descrizione,
             importo: importo,
             data: data,
@@ -261,17 +279,20 @@ extension GestionaleViewModel {
         // Elimina movimenti esistenti
         let deleteMovimenti = NSFetchRequest<NSFetchRequestResult>(entityName: "CDMovimentoFinanziario")
         let batchDeleteMovimenti = NSBatchDeleteRequest(fetchRequest: deleteMovimenti)
-               
-        // Elimina bonifici esistenti
-        let deleteBonifici = NSFetchRequest<NSFetchRequestResult>(entityName: "CDBonifico")
-        let batchDeleteBonifici = NSBatchDeleteRequest(fetchRequest: deleteBonifici)
+        
+        // Elimina bonifici esistenti (se l'entità esiste nel modello)
+        var batchDeleteBonifici: NSBatchDeleteRequest?
+        if NSManagedObjectModel.mergedModel(from: nil)?.entitiesByName["CDBonifico"] != nil {
+            let deleteBonifici = NSFetchRequest<NSFetchRequestResult>(entityName: "CDBonifico")
+            batchDeleteBonifici = NSBatchDeleteRequest(fetchRequest: deleteBonifici)
+        }
                
         
         do {
             try context.execute(batchDeletePren)
             try context.execute(batchDeleteSpese)
             try context.execute(batchDeleteMovimenti)
-            try context.execute(batchDeleteBonifici)
+            if let batchDeleteBonifici { try context.execute(batchDeleteBonifici) }
             print("🧹 Core Data pulito prima della migrazione")
         } catch {
             print("⚠️ Errore pulizia Core Data: \(error)")
@@ -325,7 +346,7 @@ extension GestionaleViewModel {
     // MARK: - Override Metodi Esistenti (Opzionale)
     
     /// Salva sia in JSON che in Core Data per mantenere compatibilità
-    func saveToBothSystems() {
+    /*func saveToBothSystems() {
         // Salva in JSON (metodo esistente)
         salvaDati()
         
@@ -333,7 +354,7 @@ extension GestionaleViewModel {
         if isCoreDataAvailable() {
             syncToCoreData()
         }
-    }
+    }*/
     
     private func syncToCoreData() {
         let context = CoreDataManager.shared.viewContext

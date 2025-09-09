@@ -2,12 +2,11 @@
 //  Mantieni solo la struttura principale, sposta tutto il resto in file separati
 
 import SwiftUI
-import Charts
+// Charts rimosso: nessun grafico settimanale in questa view
 
 struct EnhancedDashboardView: View {
     @ObservedObject var viewModel: GestionaleViewModel
     @Binding var selectedTab: Int
-    @State private var selectedPeriod = "Mese"
     @State private var showingStats = true
     
     // Stati per le sheet
@@ -32,7 +31,7 @@ struct EnhancedDashboardView: View {
         ScrollView {
             VStack(spacing: 20) {
                 // Header migliorato
-                HeaderSection(viewModel: viewModel, selectedPeriod: $selectedPeriod)
+                HeaderSection(viewModel: viewModel)
                     .padding(.horizontal)
                 
                 // KPI Cards animate
@@ -44,15 +43,27 @@ struct EnhancedDashboardView: View {
                             removal: .scale.combined(with: .opacity)
                         ))
                 }
-                
-                // Grafico Entrate
-                RevenueChartSection(viewModel: viewModel)
+
+                // Utente loggato e Struttura attiva
+                UserStructureHeader()
                     .padding(.horizontal)
-                
+
+                // Carosello immagini struttura attiva
+                StructurePhotosCarousel()
+                    .padding(.horizontal)
+
                 // Occupazione Visuale
                 OccupancyVisualSection(viewModel: viewModel)
                     .padding(.horizontal)
-                
+
+                // Timeline prossimi 7 giorni (no grafico)
+                WeeklyTimelineSection(viewModel: viewModel)
+                    .padding(.horizontal)
+
+                // Avvisi utili
+                AlertsSection(viewModel: viewModel)
+                    .padding(.horizontal)
+
                 // Prenotazioni Recenti
                 //EnhancedRecentBookings(viewModel: viewModel, prenotazioni: prenotazioniAggiornate)
                     //.padding(.horizontal)
@@ -99,5 +110,3 @@ struct EnhancedDashboardView: View {
         }
     }
 }
-
-

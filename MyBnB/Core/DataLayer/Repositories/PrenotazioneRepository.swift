@@ -14,7 +14,7 @@ class PrenotazioneRepository: ObservableObject {
     private let context: NSManagedObjectContext
     @Published var prenotazioni: [Prenotazione] = []
     
-    init(context: NSManagedObjectContext = CoreDataStack.shared.viewContext) {
+    init(context: NSManagedObjectContext = CoreDataManager.shared.viewContext) {
         self.context = context
         Task {
             await loadPrenotazioni()
@@ -112,6 +112,7 @@ class PrenotazioneRepository: ObservableObject {
     
     private func mapFromCore(_ cdEntity: CDPrenotazione) -> Prenotazione {
         Prenotazione(
+            id: cdEntity.id ?? UUID(),
             nomeOspite: cdEntity.nomeOspite ?? "",
             email: cdEntity.email ?? "",
             telefono: cdEntity.telefono ?? "",

@@ -14,7 +14,7 @@ class SpesaRepository: ObservableObject {
     private let context: NSManagedObjectContext
     @Published var spese: [Spesa] = []
     
-    init(context: NSManagedObjectContext = CoreDataStack.shared.viewContext) {
+    init(context: NSManagedObjectContext = CoreDataManager.shared.viewContext) {
         self.context = context
         Task {
             await loadSpese()
@@ -63,6 +63,7 @@ class SpesaRepository: ObservableObject {
         let results = try context.fetch(request)
         return results.map { cdSpesa in
             Spesa(
+                id: cdSpesa.id ?? UUID(),
                 descrizione: cdSpesa.descrizione ?? "",
                 importo: cdSpesa.importo,
                 data: cdSpesa.data ?? Date(),

@@ -3,7 +3,8 @@
 import SwiftUI
 
 struct Prenotazione: Identifiable, Codable {
-    let id = UUID()
+    var id: UUID
+    var strutturaId: UUID? = nil
     var nomeOspite: String
     var email: String
     var telefono: String
@@ -34,8 +35,12 @@ struct Prenotazione: Identifiable, Codable {
         Calendar.current.dateComponents([.day], from: dataCheckIn, to: dataCheckOut).day ?? 0
     }
     
-    // Inizializzatore per Codable
-    init(nomeOspite: String, email: String, telefono: String, dataCheckIn: Date, dataCheckOut: Date, numeroOspiti: Int, prezzoTotale: Double, statoPrenotazione: StatoPrenotazione, note: String) {
+    enum CodingKeys: String, CodingKey { case id, strutturaId, nomeOspite, email, telefono, dataCheckIn, dataCheckOut, numeroOspiti, prezzoTotale, statoPrenotazione, note }
+
+    // Inizializzatore (id di default per nuove istanze)
+    init(id: UUID = UUID(), strutturaId: UUID? = nil, nomeOspite: String, email: String, telefono: String, dataCheckIn: Date, dataCheckOut: Date, numeroOspiti: Int, prezzoTotale: Double, statoPrenotazione: StatoPrenotazione, note: String) {
+        self.id = id
+        self.strutturaId = strutturaId
         self.nomeOspite = nomeOspite
         self.email = email
         self.telefono = telefono
@@ -47,4 +52,3 @@ struct Prenotazione: Identifiable, Codable {
         self.note = note
     }
 }
-

@@ -3,30 +3,75 @@
     <entity name="CDMovimentoFinanziario" representedClassName="CDMovimentoFinanziario" syncable="YES" codeGenerationType="class">
         <attribute name="categoria" optional="YES" attributeType="String"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <attribute name="data" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        
         <attribute name="descrizione" optional="YES" attributeType="String"/>
-        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO" indexed="YES"/>
         <attribute name="importo" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="metodoPagamento" optional="YES" attributeType="String"/>
         <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="prenotazioneId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="strutturaId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="tipo" optional="YES" attributeType="String"/>
-        <attribute name="updateAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="data" optional="YES" attributeType="Date" usesScalarValueType="NO" indexed="YES"/>
         <relationship name="prenotazione" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDPrenotazione" inverseName="movimenti" inverseEntity="CDPrenotazione"/>
+</entity>
+    <entity name="CDStruttura" representedClassName="CDStruttura" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="nome" optional="YES" attributeType="String"/>
+        <attribute name="indirizzo" optional="YES" attributeType="String"/>
+        <attribute name="citta" optional="YES" attributeType="String"/>
+        <attribute name="camereTotali" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="attiva" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="bookingPropertyId" optional="YES" attributeType="String"/>
+        <attribute name="bookingUrl" optional="YES" attributeType="String"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="imagePath" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="foto" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDFotoStruttura" inverseName="struttura" inverseEntity="CDFotoStruttura"/>
+    </entity>
+    <entity name="CDFotoStruttura" representedClassName="CDFotoStruttura" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="path" optional="YES" attributeType="String"/>
+        <attribute name="ordine" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="struttura" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDStruttura" inverseName="foto" inverseEntity="CDStruttura"/>
     </entity>
     <entity name="CDPrenotazione" representedClassName="CDPrenotazione" syncable="YES" codeGenerationType="class">
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <attribute name="dataCheckIn" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dataCheckIn" optional="YES" attributeType="Date" usesScalarValueType="NO" indexed="YES"/>
         <attribute name="dataCheckOut" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="email" optional="YES" attributeType="String"/>
-        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO" indexed="YES"/>
         <attribute name="nomeOspite" optional="YES" attributeType="String"/>
         <attribute name="note" optional="YES" attributeType="String"/>
         <attribute name="numeroOspiti" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="prezzoTotale" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="statoPrenotazione" optional="YES" attributeType="String"/>
         <attribute name="telefono" optional="YES" attributeType="String"/>
+        <attribute name="strutturaId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <relationship name="movimenti" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDMovimentoFinanziario" inverseName="prenotazione" inverseEntity="CDMovimentoFinanziario"/>
+        <relationship name="movimenti" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDMovimentoFinanziario" inverseName="prenotazione" inverseEntity="CDMovimentoFinanziario"/>
+    </entity>
+    <entity name="CDBonifico" representedClassName="CDBonifico" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="importo" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="data" optional="YES" attributeType="Date" usesScalarValueType="NO" indexed="YES"/>
+        <attribute name="dataValuta" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="ordinante" optional="YES" attributeType="String"/>
+        <attribute name="beneficiario" optional="YES" attributeType="String"/>
+        <attribute name="causale" optional="YES" attributeType="String"/>
+        <attribute name="cro" optional="YES" attributeType="String"/>
+        <attribute name="iban" optional="YES" attributeType="String"/>
+        <attribute name="banca" optional="YES" attributeType="String"/>
+        <attribute name="tipo" optional="YES" attributeType="String"/>
+        <attribute name="stato" optional="YES" attributeType="String"/>
+        <attribute name="commissioni" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="movimentoId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     </entity>
     <entity name="CDSpesa" representedClassName="CDSpesa" syncable="YES" codeGenerationType="class">
         <attribute name="categoria" optional="YES" attributeType="String"/>
@@ -35,5 +80,19 @@
         <attribute name="descrizione" optional="YES" attributeType="String"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="importo" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="strutturaId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+    <entity name="CDUtente" representedClassName="CDUtente" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="nome" optional="YES" attributeType="String"/>
+        <attribute name="email" optional="YES" attributeType="String"/>
+        <attribute name="passwordHash" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="NO"/>
+        <attribute name="salt" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="NO"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="profileImagePath" optional="YES" attributeType="String"/>
+        <attribute name="ruolo" optional="YES" attributeType="String"/>
+        <attribute name="bio" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     </entity>
 </model>
