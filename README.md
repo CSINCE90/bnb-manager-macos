@@ -1,46 +1,75 @@
 # 🏡 MyBnB – Gestione BnB per macOS
 
-MyBnB è una semplice applicazione desktop per **macOS**, sviluppata con **Xcode** e **SwiftUI**, pensata per gestire in modo intuitivo le prenotazioni e le spese di un Bed & Breakfast.  
-Un progetto nato da un’esigenza reale: avere un gestionale **easy e veloce**, senza dover configurare stack complessi (Docker, MySQL, Postman…).
+MyBnB è un’app desktop per **macOS** sviluppata in **SwiftUI** per gestire in modo semplice prenotazioni, spese e attività di una casa vacanze/BnB. È pensata per essere veloce, locale e senza dipendenze complesse.
 
 ---
 
 ## 🚀 Funzionalità principali
-- 📅 **Gestione prenotazioni**: aggiunta, modifica ed eliminazione  
-- 🛏 **Calendario**: panoramica delle camere e disponibilità  
-- 📊 **Dashboard**: statistiche rapide sull’andamento del BnB  
-- 💸 **Gestione spese**: inserimento e monitoraggio dei costi  
+- 👤 **Profili utente (multi‑utente)**: registrazione/login, ruolo (Owner/Manager/Staff), bio, avatar; cambio password.
+- 🏠 **Strutture**: creazione, modifica, elimina, note, immagine principale; galleria foto con anteprime; “Imposta Attiva”.
+- 📊 **Dashboard**: header con utente/struttura, carosello foto struttura attiva, timeline “Prossimi 7 giorni” (check‑in/checkout distinti), KPI essenziali.
+- 📅 **Prenotazioni**: aggiungi/modifica/elimina, collegamento alla struttura.
+- 💸 **Spese e Movimenti**: gestione economica con collegamento alla struttura.
+- 🗂️ **Esportazione dati**: export JSON completo (prenotazioni/spese/movimenti/bonifici).
 
 ---
 
-## 🛠️ Tecnologie utilizzate
-- **Swift**  
-- **SwiftUI**  
-- **Xcode** (IDE)  
-- Target: **macOS** (Apple Silicon & Intel)
+## 🧱 Persistenza e modello dati
+- **Core Data** con migrazione leggera automatica.
+- Entità principali: `CDPrenotazione`, `CDSpesa`, `CDMovimentoFinanziario`, `CDStruttura`, `CDFotoStruttura`, `CDUtente`, `CDBonifico`.
+- Ogni record (prenotazione, spesa, movimento) può essere legato alla **struttura attiva** (`strutturaId`).
 
 ---
 
-## 📂 Struttura del progetto
-- `Models/` → Strutture dati (Prenotazioni, Spese)  
-- `ViewModels/` → Logica di business e binding con la UI  
-- `Views/` → Interfacce utente (Dashboard, Prenotazioni, Spese, Calendario)
+## 🔐 Autenticazione
+- Registrazione/Login con email + password (hash + salt).
+- Cambio password dalla scheda **Profilo**.
+- Login biometrico (quando disponibile su dispositivo).
 
 ---
 
-## 📌 Roadmap
-- [ ] Integrazione con database locale (Core Data / SQLite)  
-- [ ] Esportazione report in PDF/Excel  
-- [ ] Notifiche check-in/check-out  
-- [ ] Possibile sincronizzazione con servizi cloud  
+## 🖼️ Strutture e galleria
+- Scheda **Strutture**: elenco strutture con Modifica/Elimina e “Imposta Attiva”.
+- In **Modifica**: note, immagine principale, e galleria foto (multi‑selezione file su macOS).
+- In **Dashboard**: carosello foto della struttura attiva.
+
+---
+
+## 🧭 Avvio rapido (Build)
+1. Apri `MyBnB.xcodeproj` con **Xcode** (macOS 13+ consigliato).
+2. Seleziona target “MyBnB” e lancia il build su macOS.
+3. Alla prima apertura:
+   - Crea un **utente** (nome, email, password).
+   - Crea una **struttura** e imposta “Imposta Attiva”.
+   - (Opzionale) Aggiungi foto alla struttura dalla schermata **Modifica**.
+
+---
+
+## 📂 Struttura del progetto (high‑level)
+- `Core/` → Auth, Services, DataLayer (Core Data + Repository)
+- `Models/` → Modelli Swift (Prenotazione, Spesa, Movimento…)
+- `ViewModels/` → Logica e binding dati
+- `Views/` → UI (Dashboard, Strutture, Profilo, Prenotazioni, Spese, Bilancio)
+
+---
+
+## 🧾 Esportazione/backup
+- Da Impostazioni → “Esporta come JSON”: genera un dump completo con timestamp sul Desktop.
+
+---
+
+## 📌 Roadmap (idee)
+- Link “hard” record↔struttura anche a livello UI avanzato (filtri globali, trasferimenti tra strutture).
+- Report PDF/CSV e analisi entrate/uscite.
+- Permessi per ruolo (es. Staff con diritti limitati).
 
 ---
 
 ## 👨‍💻 Autore
 Sviluppato da **Francesco Chifari**  
-📫 [LinkedIn](www.linkedin.com/in/francesco-chifari)
+📫 [LinkedIn](https://www.linkedin.com/in/francesco-chifari)
 
 ---
 
 ## 📜 Licenza
-Questo progetto è distribuito con licenza **MIT**. Sentiti libero di usarlo, modificarlo e migliorarlo.
+Distribuito con licenza **MIT**. Sentiti libero di usarlo, modificarlo e migliorarlo.
