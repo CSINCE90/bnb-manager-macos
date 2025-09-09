@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreData
 
 struct PrenotazioniView: View {
     @ObservedObject var viewModel: GestionaleViewModel
@@ -567,6 +568,9 @@ struct CompactPrenotazioneCard: View {
 struct PrenotazioneDetailPopover: View {
     let prenotazione: Prenotazione
     @Environment(\.dismiss) private var dismiss
+    @State private var movimenti: [MovimentoFinanziario] = []
+    private let context = CoreDataManager.shared.viewContext
+    @State private var showingAddMovimento = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -603,11 +607,53 @@ struct PrenotazioneDetailPopover: View {
                             .font(.caption)
                     }
                 }
+
+                if !movimenti.isEmpty {
+                    Divider().padding(.vertical, 4)
+                    Text("Movimenti Collegati (\(movimenti.count))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    ForEach(movimenti) { m in
+                        HStack(alignment: .firstTextBaseline) {
+                            Image(systemName: m.tipo == .entrata ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                                .foregroundColor(m.tipo == .entrata ? .green : .red)
+                            Text(m.descrizione)
+                                .font(.caption)
+                            Spacer()
+                            Text(String(format: "€%.2f", m.importo))
+                                .font(.caption2)
+                                .foregroundColor(m.tipo == .entrata ? .green : .red)
+                        }
+                    }
+                }
+
+                HStack(spacing: 12) {
+                    Button("Aggiungi Movimento") {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("NavigateToBilancioWithFilter"),
+                            object: nil,
+                            userInfo: [
+                                "prenotazioneId": prenotazione.id,
+                                "openAddMovement": true
+                            ]
+                        )
+                        dismiss()
+                    }
+                    Button("Apri in Bilancio") {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("NavigateToBilancioWithFilter"),
+                            object: nil,
+                            userInfo: ["prenotazioneId": prenotazione.id]
+                        )
+                        dismiss()
+                    }
+                }
             }
             
             Spacer()
         }
         .padding()
+        .onAppear { loadMovimentiCollegati() }
     }
     
     private func formatFullDate(_ date: Date) -> String {
@@ -615,6 +661,49 @@ struct PrenotazioneDetailPopover: View {
         formatter.dateStyle = .medium
         formatter.locale = Locale(identifier: "it_IT")
         return formatter.string(from: date)
+    }
+
+    private func loadMovimentiCollegati() {
+        let request = NSFetchRequest<NSManagedObject>(entityName: "CDMovimentoFinanziario")
+        request.sortDescriptors = [NSSortDescriptor(key: "data", ascending: false)]
+        request.fetchBatchSize = 100
+        request.predicate = NSPredicate(format: "prenotazione.id == %@ OR prenotazioneId == %@", prenotazione.id as CVarArg, prenotazione.id as CVarArg)
+        do {
+            let items = try context.fetch(request)
+            self.movimenti = items.compactMap { cd in
+                guard let descrizione = cd.value(forKey: "descrizione") as? String,
+                      let importo = cd.value(forKey: "importo") as? Double,
+                      let data = cd.value(forKey: "data") as? Date,
+                      let tipoRaw = cd.value(forKey: "tipo") as? String,
+                      let categoriaRaw = cd.value(forKey: "categoria") as? String,
+                      let metodoPagamentoRaw = cd.value(forKey: "metodoPagamento") as? String
+                else { return nil }
+                let id = cd.value(forKey: "id") as? UUID ?? UUID()
+                let note = cd.value(forKey: "note") as? String ?? ""
+                let prenId = cd.value(forKey: "prenotazioneId") as? UUID
+                let updatedAt = cd.value(forKey: "updatedAt") as? Date ?? Date()
+                let createdAt = cd.value(forKey: "createdAt") as? Date ?? Date()
+                guard let tipo = MovimentoFinanziario.TipoMovimento(rawValue: tipoRaw),
+                      let categoria = MovimentoFinanziario.CategoriaMovimento(rawValue: categoriaRaw),
+                      let metodoPagamento = MovimentoFinanziario.MetodoPagamento(rawValue: metodoPagamentoRaw)
+                else { return nil }
+                return MovimentoFinanziario(
+                    id: id,
+                    descrizione: descrizione,
+                    importo: importo,
+                    data: data,
+                    tipo: tipo,
+                    categoria: categoria,
+                    metodoPagamento: metodoPagamento,
+                    note: note,
+                    prenotazioneId: prenId,
+                    updatedAt: updatedAt,
+                    createdAt: createdAt
+                )
+            }
+        } catch {
+            print("❌ Errore caricamento movimenti collegati: \(error)")
+        }
     }
 }
 

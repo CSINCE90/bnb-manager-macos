@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var selectedTab = 0
     @State private var useEnhancedViews = true
     @EnvironmentObject var localServer: LocalAPIServer
+    @State private var bilancioFilterPrenotazioneId: UUID? = nil
+    @State private var bilancioOpenAddOnAppear = false
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -31,7 +33,7 @@ struct ContentView: View {
                 .tag(1)
             
             // Bilancio Tab (NUOVO!)
-            BilancioView(viewModel: viewModel)
+            BilancioView(viewModel: viewModel, filterPrenotazioneId: bilancioFilterPrenotazioneId, openAddOnAppear: bilancioOpenAddOnAppear)
                 .tabItem {
                     Label("Bilancio", systemImage: "eurosign.circle")
                 }
@@ -84,6 +86,20 @@ struct ContentView: View {
                     Label("Booking.com", systemImage: "building.2.crop.circle")
                 }
                 .tag(7)
+
+            // STRUTTURE TAB
+            StruttureView()
+                .tabItem {
+                    Label("Strutture", systemImage: "house.and.flag")
+                }
+                .tag(8)
+
+            // PROFILO UTENTE TAB
+            UserProfileView()
+                .tabItem {
+                    Label("Profilo", systemImage: "person.circle")
+                }
+                .tag(9)
         }
         .onAppear {
             viewModel.enableCoreData()
@@ -95,6 +111,23 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NavigateToBilancio"))) { _ in
             selectedTab = 2 // Nuovo: navigazione verso Bilancio
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("ActiveStrutturaChanged"))) { _ in
+            // Aggiorna filtri e ricarica dati
+            bilancioFilterPrenotazioneId = nil
+            bilancioOpenAddOnAppear = false
+            viewModel.caricaDatiDaCoreData()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NavigateToBilancioWithFilter"))) { note in
+            if let id = note.userInfo?["prenotazioneId"] as? UUID {
+                bilancioFilterPrenotazioneId = id
+            }
+            if let openAdd = note.userInfo?["openAddMovement"] as? Bool, openAdd == true {
+                bilancioOpenAddOnAppear = true
+            } else {
+                bilancioOpenAddOnAppear = false
+            }
+            selectedTab = 2
         }
     }
 }

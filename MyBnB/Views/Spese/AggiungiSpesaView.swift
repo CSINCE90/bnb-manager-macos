@@ -15,6 +15,8 @@ struct AggiungiSpesaView: View {
     @State private var importoString = ""
     @State private var data = Date()
     @State private var categoria: Spesa.CategoriaSpesa = .altro
+    @State private var strutturaId: UUID? = UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? "")
+    @StateObject private var strutturaRepo = StrutturaRepository()
     
     var body: some View {
         NavigationView {
@@ -39,6 +41,14 @@ struct AggiungiSpesaView: View {
                         }
                     }
                     .pickerStyle(.menu)
+                    
+                    if !strutturaRepo.strutture.isEmpty {
+                        Picker("Struttura", selection: Binding(get: { strutturaId }, set: { strutturaId = $0 })) {
+                            ForEach(strutturaRepo.strutture, id: \.objectID) { s in
+                                Text(s.nome ?? "Senza nome").tag(s.id as UUID?)
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("Nuova Spesa")
@@ -57,6 +67,10 @@ struct AggiungiSpesaView: View {
                 }
             }
         }
+        .onAppear {
+            strutturaRepo.load()
+            if strutturaId == nil, let first = strutturaRepo.strutture.first?.id { strutturaId = first }
+        }
     }
     
     private var isFormValid: Bool {
@@ -69,6 +83,7 @@ struct AggiungiSpesaView: View {
         guard let importo = Double(importoString) else { return }
         
         let nuovaSpesa = Spesa(
+            strutturaId: strutturaId,
             descrizione: descrizione,
             importo: importo,
             data: data,

@@ -11,7 +11,6 @@ import SwiftUI
 
 struct HeaderSection: View {
     @ObservedObject var viewModel: GestionaleViewModel
-    @Binding var selectedPeriod: String
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -28,14 +27,7 @@ struct HeaderSection: View {
                 
                 Spacer()
                 
-                // Period Selector
-                Picker("Periodo", selection: $selectedPeriod) {
-                    Text("Settimana").tag("Settimana")
-                    Text("Mese").tag("Mese")
-                    Text("Anno").tag("Anno")
-                }
-                .pickerStyle(SegmentedPickerStyle())
-                .frame(width: 200)
+                // Rimosso switcher Settimana/Mese/Anno per semplificare la dashboard
             }
             
             // Welcome message con statistiche rapide

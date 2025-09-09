@@ -12,17 +12,29 @@ class BookingIntegrationService: ObservableObject {
     private let webhookPort: Int = 8766 // Porta diversa dal server principale
     private var webhookServer: WebhookServer?
     
-    // Configurazione Booking.com (REALE - La tua proprietà!)
+    // Configurazione dinamica letta da Strutture (AppStorage)
     struct BookingConfig {
-        let propertyId = "1246393301"  // Estratto dal tuo link
-        let propertyName = "La Casetta delle Petunie"  // Il tuo B&B!
-        let location = "Sicilia, Italia"
-        let webhookUrl = "http://localhost:8766/webhook/booking"
-        let apiKey = "demo_api_key_petunie_12345"
-        let bookingUrl = "https://www.booking.com/hotel/it/la-casetta-delle-petunie.it.html"
+        let propertyId: String
+        let propertyName: String
+        let location: String
+        let webhookUrl: String
+        let apiKey: String
+        let bookingUrl: String
     }
     
-    private let config = BookingConfig()
+    private var config: BookingConfig {
+        let propertyId = (UserDefaults.standard.string(forKey: "activeBookingPropertyId") ?? "").isEmpty ? "demo_property" : (UserDefaults.standard.string(forKey: "activeBookingPropertyId") ?? "")
+        let propertyName = UserDefaults.standard.string(forKey: "activeStrutturaName") ?? "Struttura"
+        let bookingUrl = (UserDefaults.standard.string(forKey: "activeBookingUrl") ?? "").isEmpty ? "https://www.booking.com" : (UserDefaults.standard.string(forKey: "activeBookingUrl") ?? "https://www.booking.com")
+        return BookingConfig(
+            propertyId: propertyId,
+            propertyName: propertyName,
+            location: "Italia",
+            webhookUrl: "http://localhost:8766/webhook/booking",
+            apiKey: "demo_api_key",
+            bookingUrl: bookingUrl
+        )
+    }
     
     init() {
         startWebhookServer()
@@ -43,10 +55,11 @@ class BookingIntegrationService: ObservableObject {
         lastSync = Date()
         
         addSyncLog("✅ Successfully connected to Booking.com")
-        addSyncLog("🏠 Property: \(config.propertyName) - \(config.location)")
-        addSyncLog("🆔 Property ID: \(config.propertyId)")
-        addSyncLog("🔗 Webhook URL configured: \(config.webhookUrl)")
-        addSyncLog("🌐 Booking URL: \(config.bookingUrl)")
+        let cfg = config
+        addSyncLog("🏠 Property: \(cfg.propertyName) - \(cfg.location)")
+        addSyncLog("🆔 Property ID: \(cfg.propertyId)")
+        addSyncLog("🔗 Webhook URL configured: \(cfg.webhookUrl)")
+        addSyncLog("🌐 Booking URL: \(cfg.bookingUrl)")
         
         // Simula sync iniziale
         await performInitialSync()
@@ -190,6 +203,7 @@ class BookingIntegrationService: ObservableObject {
     
     private func convertToLocalBooking(_ booking: BookingReservation) -> Prenotazione {
         return Prenotazione(
+            strutturaId: UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? ""),
             nomeOspite: booking.guestName,
             email: booking.email,
             telefono: booking.phone,

@@ -19,6 +19,8 @@ struct AggiungiPrenotazioneView: View {
    @State private var numeroOspiti = 1
    @State private var prezzoTotale = ""
    @State private var note = ""
+   @State private var strutturaId: UUID? = UUID(uuidString: UserDefaults.standard.string(forKey: "activeStrutturaId") ?? "")
+   @StateObject private var strutturaRepo = StrutturaRepository()
    
    var body: some View {
        NavigationStack {
@@ -48,7 +50,21 @@ struct AggiungiPrenotazioneView: View {
                        #endif
                }
                
-               Section("Note") {
+               Section("Struttura & Note") {
+                   if !strutturaRepo.strutture.isEmpty {
+                       Picker("Struttura", selection: Binding(get: { strutturaId }, set: { strutturaId = $0 })) {
+                           ForEach(strutturaRepo.strutture, id: \.objectID) { s in
+                               Text(s.nome ?? "Senza nome").tag(s.id as UUID?)
+                           }
+                       }
+                   } else {
+                       HStack {
+                           Text("Struttura")
+                           Spacer()
+                           Text(UserDefaults.standard.string(forKey: "activeStrutturaName") ?? "")
+                               .foregroundColor(.secondary)
+                       }
+                   }
                    ZStack(alignment: .topLeading) {
                        if note.isEmpty {
                            Text("Note aggiuntive")
@@ -78,6 +94,10 @@ struct AggiungiPrenotazioneView: View {
            }
        }
        .frame(minWidth: 600, minHeight: 500)
+       .onAppear {
+           strutturaRepo.load()
+           if strutturaId == nil, let first = strutturaRepo.strutture.first?.id { strutturaId = first }
+       }
    }
    
    private var isFormValid: Bool {
@@ -91,6 +111,7 @@ struct AggiungiPrenotazioneView: View {
        guard let prezzo = Double(prezzoTotale) else { return }
        
        let nuovaPrenotazione = Prenotazione(
+           strutturaId: strutturaId,
            nomeOspite: nomeOspite,
            email: email,
            telefono: telefono,

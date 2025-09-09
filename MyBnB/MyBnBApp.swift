@@ -11,11 +11,18 @@ import SwiftUI
 @main
 struct MyBnBApp: App {
     @StateObject private var localServer = LocalAPIServer()
+    @StateObject private var auth = AuthService.shared
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(localServer)
+            Group {
+                if auth.isAuthenticated {
+                    ContentView()
+                        .environmentObject(localServer)
+                } else {
+                    LoginView()
+                }
+            }
         }
         .commands {
             CommandGroup(replacing: .help) {

@@ -8,7 +8,8 @@
 import Foundation
 
 struct Spesa: Identifiable, Codable {
-    let id = UUID()
+    var id: UUID
+    var strutturaId: UUID? = nil
     var descrizione: String
     var importo: Double
     var data: Date
@@ -22,8 +23,12 @@ struct Spesa: Identifiable, Codable {
         case altro = "Altro"
     }
     
+    enum CodingKeys: String, CodingKey { case id, strutturaId, descrizione, importo, data, categoria }
+
     // Inizializzatore
-    init(descrizione: String, importo: Double, data: Date, categoria: CategoriaSpesa) {
+    init(id: UUID = UUID(), strutturaId: UUID? = nil, descrizione: String, importo: Double, data: Date, categoria: CategoriaSpesa) {
+        self.id = id
+        self.strutturaId = strutturaId
         self.descrizione = descrizione
         self.importo = importo
         self.data = data
